@@ -63,7 +63,7 @@ class CassieEnv(MujocoEnv):
             self,
             config.get(
                 "model_path",
-                DIRPATH + "/model/cassie-mujoco-sim-master/cassie.xml",
+                DIRPATH + "/cassie-mujoco-sim-master/model/cassie.xml",
             ),
             20,
             render_mode=config.get(
