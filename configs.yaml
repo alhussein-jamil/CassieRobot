@@ -1,0 +1,112 @@
+training: 
+
+  gamma: 0.99
+
+  lr: 0.001
+
+  train_batch_size: 1000
+
+  model:
+    fcnet_hiddens: [256, 256]
+    fcnet_activation: swish
+    vf_share_layers: false
+    free_log_std: true
+
+  optimizer: 
+    type: adam
+
+  use_critic: true
+
+  use_gae: true
+
+  lambda_: 0.95
+
+  kl_coeff: 0.2
+
+  sgd_minibatch_size: 100
+
+  num_sgd_iter: 6
+
+  shuffle_sequences: true
+
+  vf_loss_coeff: 0.5
+
+  entropy_coeff: 0.01
+
+  clip_param: 0.3
+
+  vf_clip_param: 1000
+
+  grad_clip: 100
+
+  kl_target: 0.01
+
+
+environment:
+
+  env: cassie-v0
+
+  normalize_actions: false
+
+  clip_actions: false
+
+  disable_env_checking: true
+
+framework:
+
+  framework: torch
+
+  eager_tracing: true
+
+
+rollouts: 
+
+  num_rollout_workers: 20
+
+  num_envs_per_worker: 1
+
+  create_env_on_local_worker: true
+
+  sample_async: false
+
+  rollout_fragment_length: auto
+
+  batch_mode: truncate_episodes
+
+  recreate_failed_workers: true  
+
+  restart_failed_sub_environments: true  
+
+  num_consecutive_worker_failures_tolerance: 5  
+
+  observation_filter: MeanStdFilter  
+
+  compress_observations: true  
+
+evaluation: 
+
+  evaluation_interval: 2
+
+  evaluation_duration: 10
+
+checkpointing: 
+
+  export_native_model_files: true
+
+debugging: 
+
+  log_sys_usage: false
+
+  seed: 1234
+
+resources: 
+
+  num_gpus: 1
+
+  num_cpus_per_worker: 1
+
+  num_gpus_per_worker: 0.05
+
+  num_trainer_workers: 0 
+
+  placement_strategy: SPREAD
