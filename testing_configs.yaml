@@ -54,9 +54,10 @@ framework:
 
 rollouts: 
 
-  num_rollout_workers: 20
+  num_rollout_workers: 1
 
   num_envs_per_worker: 1
+
 
   rollout_fragment_length: auto
 
@@ -85,5 +86,4 @@ debugging:
 
 resources: 
 
-  num_gpus: 1
   num_cpus: 20

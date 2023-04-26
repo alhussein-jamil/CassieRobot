@@ -5,7 +5,7 @@ from ray.rllib.algorithms.registry import POLICIES
 
 
 class Loader:
-    def __init__(self, logdir, simdir):
+    def __init__(self, logdir = "ray_results/", simdir = "./sims/"):
         self.logdir = logdir
         self.simdir = simdir
 
@@ -149,6 +149,7 @@ class Loader:
             policy_weights = temp.get_policy().get_weights()
             # Destroy temp
             temp.stop()
+            del temp # free memory
             log.info("Weights loaded from checkpoint successfully")
             return policy_weights
         else:

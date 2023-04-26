@@ -38,25 +38,20 @@ class CassieEnv(MujocoEnv):
             "terminate_when_unhealthy", True)
         self._healthy_z_range = config.get("healthy_z_range", (0.35, 2.0))
 
-        low, high = [], []
-        for key in c.actuator_ranges.keys():
-            low.append(c.actuator_ranges[key][0])
-            high.append(c.actuator_ranges[key][1])
+
         self.action_space = gym.spaces.Box(
-            np.float32(np.array(low)), np.float32(np.array(high))
+            np.float32(c.low_action), np.float32(c.high_action)
         )
 
         self._reset_noise_scale = config.get("reset_noise_scale", 1e-2)
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
         self.previous_action = torch.zeros(10)
         self.gamma = config.get("gamma", 0.99)
-        self.rewards = {"R_biped": 0, "R_cmd": 0, "R_smooth": 0}
-
-        low, high = [-3] * 23 + [-1, -1], [3] * 23 + [1, 1]
+        
         self.observation_space = Box(
             low=np.float32(
-                np.array(low)), high=np.float32(
-                np.array(high)), shape=(
+                np.array(c.low_obs)), high=np.float32(
+                np.array(c.high_obs)), shape=(
                 25,))
 
         MujocoEnv.__init__(
@@ -114,15 +109,10 @@ class CassieEnv(MujocoEnv):
         qpos = self.data.qpos.flat.copy()
         qvel = self.data.qvel.flat.copy()
 
-        pos_index = np.array(
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 20, 21, 22, 23, 28, 29, 30, 34]
-        )
-        vel_index = np.array(
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 18, 19, 20, 21, 25, 26, 27, 31]
-        )
 
-        qpos = qpos[pos_index]
-        qvel = qvel[vel_index]
+
+        qpos = qpos[c.pos_index]
+        qvel = qvel[c.vel_index]
 
         # Feet Contact Forces
         contact_force_right_foot = np.zeros(6)
@@ -214,7 +204,7 @@ class CassieEnv(MujocoEnv):
                 - self.model.opt.gravity.data
             ),
         }
-        self.used_quantities = {
+        used_quantities = {
             "q_vx": q_vx,
             "q_vy": q_vy,
             "q_vz": q_vz,
@@ -227,6 +217,10 @@ class CassieEnv(MujocoEnv):
             "q_torque": q_torque,
             "q_pelvis_acc": q_pelvis_acc,
         }
+        
+        
+        
+        self.used_quantities = used_quantities
         # Responsable for the swing and stance phase
         def i(phi, a, b): return f.p_between_von_mises(a, b, c.KAPPA, phi)
         def i_swing_frc(phi): 
@@ -259,12 +253,15 @@ class CassieEnv(MujocoEnv):
 
         reward = 2.5 + 0.5 * r_biped + 0.375 * r_cmd + 0.125 * r_smooth
 
-        self.rewards = {
+        rewards = {
             "r_biped": r_biped,
             "r_cmd": r_cmd,
             "r_smooth": r_smooth}
-
-        return reward
+        self.C = {"C_frc_left": c_frc(self.phi + c.THETA_LEFT),
+                  "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
+                  "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
+                  "C_spd_right": c_spd(self.phi + c.THETA_RIGHT)}
+        return reward,used_quantities,rewards
 
     # step in time
     def step(self, action):
@@ -276,7 +273,7 @@ class CassieEnv(MujocoEnv):
 
         observation = self._get_obs()
 
-        reward = self.compute_reward(action)
+        reward,used_quantities, rewards= self.compute_reward(action)
 
         terminated = self.terminated
 
@@ -288,8 +285,9 @@ class CassieEnv(MujocoEnv):
 
         self.gamma_modified *= self.gamma
         info = {}
-        info["custom_rewards"] = self.rewards
-        info["custom_quantities"] = self.used_quantities
+        info["custom_rewards"] = rewards
+        info["custom_quantities"] = used_quantities
+
         info["custom_metrics"] = {
             "distance": self.data.qpos[0],
             "height": self.data.qpos[2],
@@ -304,7 +302,7 @@ class CassieEnv(MujocoEnv):
         self.previous_action = np.zeros(10)
         self.phi = 0
         self.steps = 0
-        self.rewards = {"R_biped": 0, "R_cmd": 0, "R_smooth": 0}
+        # self.rewards = {"R_biped": 0, "R_cmd": 0, "R_smooth": 0}
 
         self.gamma_modified = 1
         qpos = self.init_qpos + self.np_random.uniform(
