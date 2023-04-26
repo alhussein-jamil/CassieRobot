@@ -4,10 +4,10 @@ training:
 
   lr: 0.001
 
-  train_batch_size: 50000
+  train_batch_size: 15000
 
   model:
-    fcnet_hiddens: [256, 256]
+    fcnet_hiddens: [128, 128]
     fcnet_activation: swish
     vf_share_layers: false
     free_log_std: true
@@ -23,9 +23,9 @@ training:
 
   kl_coeff: 0.2
 
-  sgd_minibatch_size: 9000
+  sgd_minibatch_size: 5000
 
-  num_sgd_iter: 6
+  num_sgd_iter: 3
 
   shuffle_sequences: true
 
@@ -46,27 +46,17 @@ environment:
 
   env: cassie-v0
 
-  normalize_actions: false
-
-  clip_actions: false
-
   disable_env_checking: true
 
 framework:
 
   framework: torch
 
-
-
 rollouts: 
 
-  num_rollout_workers: 16
+  num_rollout_workers: 20
 
-  num_envs_per_worker: 24
-
-  create_env_on_local_worker: true
-
-  sample_async: false
+  num_envs_per_worker: 1
 
   rollout_fragment_length: auto
 
@@ -74,11 +64,7 @@ rollouts:
 
   recreate_failed_workers: true  
 
-  restart_failed_sub_environments: true  
-
-  num_consecutive_worker_failures_tolerance: 5  
-
-  observation_filter: MeanStdFilter  
+  observation_filter: NoFilter  
 
   compress_observations: true  
 
@@ -96,14 +82,8 @@ debugging:
 
   log_sys_usage: false
 
-  seed: 1234
 
 resources: 
 
   num_gpus: 1
-
-  num_cpus_per_worker: 1
-
-  num_gpus_per_worker: 0.0625
-
-  placement_strategy: SPREAD
+  num_cpus: 20

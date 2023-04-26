@@ -1,6 +1,10 @@
 import numpy as np
 import torch
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+print ('Device is ', device)
 # names of the sensors and number of readings for each
+
 sensor_names = [
     "left-foot-input",
     "left-foot-output",
@@ -23,7 +27,6 @@ sensor_names = [
     "right-shin-output",
     "right-tarsus-output",
 ]
-sensor_sizes = [1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 4, 1, 1, 1, 1, 1, 1, 1, 1]
 # The constants are defined here
 THETA_LEFT = 0.5
 THETA_RIGHT = 0
@@ -70,8 +73,8 @@ exponential_bornes = {
     "q_vx": [0, X_VEL],
     "q_vy": [0, 0.5],
     "q_vz": [0, 5],
-    "q_frc": [0, 1e5],
-    "q_spd": [0, 500],
+    "q_frc": [0, 92500],
+    "q_spd": [0, 10],
     "q_action": [0, 3],
     "q_orientation": [0, 1],
     "q_torque": [0, 25],
@@ -109,9 +112,17 @@ sensor_ranges = {
 
 act_ranges = torch.tensor(list(actuator_ranges.values()))
 
-pos_index = np.array(
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 20, 21, 22, 23, 28, 29, 30, 34]
-)
-vel_index = np.array(
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 18, 19, 20, 21, 25, 26, 27, 31]
-)
+pos_index = [1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 20, 21, 22, 23, 28, 29, 30, 34]
+
+vel_index = [0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 18, 19, 20, 21, 25, 26, 27, 31]
+
+low_obs, high_obs = torch.tensor([-3] * 23 + [-1, -1]), torch.tensor( [3] * 23 + [1, 1])
+low_obs = low_obs
+high_obs = high_obs
+low_action, high_action = [], []
+for key in actuator_ranges.keys():
+    low_action.append(actuator_ranges[key][0])
+    high_action.append(actuator_ranges[key][1])
+
+low_action = torch.tensor(low_action)
+high_action = torch.tensor(high_action)

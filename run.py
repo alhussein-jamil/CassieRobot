@@ -169,7 +169,7 @@ if __name__ == "__main__":
             checkpoint_path is not None
             and weights.keys() == trainer.get_policy().get_weights().keys()
         ):
-            trainer.get_policy().set_weights(weights)
+            trainer.restore(checkpoint_path)
             print("Weights loaded successfully")
 
     # Define video codec and framerate

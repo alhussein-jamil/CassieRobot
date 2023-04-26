@@ -15,10 +15,8 @@ def p_between_von_mises(a, b, kappa, x):
     return p_between
 
 
-#
-
-
 def action_dist(a, b):
+    
     diff = a - b
 
     diff = torch.div(diff, c.act_ranges[:, 1] - c.act_ranges[:, 0])
