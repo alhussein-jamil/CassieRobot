@@ -66,7 +66,8 @@ class CassieEnv(MujocoEnv):
                 None),
             observation_space=self.observation_space,
             **kwargs)
-
+        self.render_mode = 'rgb_array'
+        
     @property
     def healthy_reward(self):
         return (
@@ -267,7 +268,7 @@ class CassieEnv(MujocoEnv):
     def step(self, action):
         # clip the action to the ranges in action_space (done inside the config
         # that's why removed)
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        # action = np.clip(action, self.action_space.low, self.action_space.high)
 
         self.do_simulation(action, self.frame_skip)
 

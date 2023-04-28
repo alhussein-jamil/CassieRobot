@@ -47,10 +47,11 @@ environment:
   env: cassie-v0
 
   disable_env_checking: true
-
+  clip_actions: true
 framework:
 
   framework: torch
+  enable_eager_tracing: true
 
 rollouts: 
 
@@ -64,7 +65,7 @@ rollouts:
 
   recreate_failed_workers: true  
 
-  observation_filter: NoFilter  
+  observation_filter: MeanStdFilter  
 
   compress_observations: true  
 

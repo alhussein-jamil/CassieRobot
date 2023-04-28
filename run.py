@@ -207,6 +207,7 @@ if __name__ == "__main__":
     while True:
         # Train for one iteration
         result = trainer.train()
+        #get the current filter params
         i += 1
         print(
             "Episode {} Reward Mean {} Q_lef_frc {} Q_left_spd {}".format(
@@ -229,7 +230,7 @@ if __name__ == "__main__":
 
             # Run test
             video_path = os.path.join(test_dir, "sim_{}.mp4".format(i))
-
+            filterfn = trainer.workers.local_worker().filters["default_policy"]
             env.reset()
             obs = env.reset()[0]
             done = False
@@ -238,6 +239,7 @@ if __name__ == "__main__":
             while not done:
                 # Increment steps
                 steps += 1
+                obs = filterfn(obs)
                 action = trainer.compute_single_action(obs)
                 obs, _, done, _, _ = env.step(action)
                 frame = env.render()
