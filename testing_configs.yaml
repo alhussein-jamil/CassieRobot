@@ -65,7 +65,7 @@ rollouts:
 
   recreate_failed_workers: true  
 
-  observation_filter: NoFilter  
+  observation_filter: MeanStdFilter  
 
   compress_observations: true  
 
