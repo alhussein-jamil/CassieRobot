@@ -47,17 +47,17 @@ environment:
   env: cassie-v0
 
   disable_env_checking: true
-
+  clip_actions: true
 framework:
 
   framework: torch
+  enable_eager_tracing: true
 
 rollouts: 
 
   num_rollout_workers: 1
 
   num_envs_per_worker: 1
-
 
   rollout_fragment_length: auto
 
@@ -86,4 +86,5 @@ debugging:
 
 resources: 
 
+  num_gpus: 1
   num_cpus: 20
