@@ -79,7 +79,8 @@ class CassieEnv(MujocoEnv):
     def is_healthy(self):
         min_z, max_z = self._healthy_z_range
         # it is healthy if in range and one of the feet is on the ground
-        is_healthy = min_z < self.data.qpos[2] < max_z
+        is_healthy = min_z < self.data.qpos[2] < max_z # and (self.contact == False or  self.data.geom_xpos[-2:,2][0] < 0.15 or self.data.geom_xpos[-2:,2][1] < 0.15)
+        
         return is_healthy
 
     @property
@@ -120,6 +121,11 @@ class CassieEnv(MujocoEnv):
         m.mj_contactForce(self.model, self.data, 0, contact_force_right_foot)
         contact_force_left_foot = np.zeros(6)
         m.mj_contactForce(self.model, self.data, 1, contact_force_left_foot)
+
+
+        #check if cassie hit the ground with feet 
+        if self.data.geom_xpos[-2:,2][0] < 0.10 or self.data.geom_xpos[-2:,2][1] < 0.10:
+            self.contact  = True
 
         # Some metrics to be used in the reward function
         q_vx = 1 - np.exp(
@@ -243,8 +249,8 @@ class CassieEnv(MujocoEnv):
             phi
         ) + c.c_stance_spd * i_stance_spd(phi)
 
-        r_cmd = -1.0 * q_vx - 1.0 * q_vy - 1.0 * q_orientation - 0.5 * q_vz
-        r_smooth = -1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc
+        r_cmd =( -1.0 * q_vx - 1.0 * q_vy - 1.0 * q_orientation - 0.5 * q_vz) / (1.0 + 1.0 + 1.0 + 0.5)
+        r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (1.0 + 1.0 + 1.0)
         
         r_biped = 0
         r_biped += c_frc(self.phi + c.THETA_LEFT) * q_left_frc
@@ -252,7 +258,8 @@ class CassieEnv(MujocoEnv):
         r_biped += c_spd(self.phi + c.THETA_LEFT) * q_left_spd
         r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
 
-        reward = 2.5 + 0.5 * r_biped + 0.375 * r_cmd + 0.125 * r_smooth
+        r_biped /= 2.0
+        reward = (4.0 * r_biped + 3.0 * r_cmd + 1.0 * r_smooth) / (4.0+3.0+1.0)  + 1.0
 
         rewards = {
             "r_biped": r_biped,
@@ -262,7 +269,16 @@ class CassieEnv(MujocoEnv):
                   "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
                   "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
                   "C_spd_right": c_spd(self.phi + c.THETA_RIGHT)}
-        return reward,used_quantities,rewards
+        metrics = {
+            "dis_x": self.data.geom_xpos[16,0],
+            "dis_y": self.data.geom_xpos[16,1],
+            "dis_z": self.data.geom_xpos[16,2],
+            "vel_x": self.data.qvel[0],
+            "vel_y": self.data.qvel[1],
+            "vel_z": self.data.qvel[2],
+        
+        }
+        return reward,used_quantities,rewards,metrics
 
     # step in time
     def step(self, action):
@@ -272,9 +288,11 @@ class CassieEnv(MujocoEnv):
 
         self.do_simulation(action, self.frame_skip)
 
+        m.mj_step(self.model, self.data)
+
         observation = self._get_obs()
 
-        reward,used_quantities, rewards= self.compute_reward(action)
+        reward,used_quantities, rewards, metrics= self.compute_reward(action)
 
         terminated = self.terminated
 
@@ -293,6 +311,9 @@ class CassieEnv(MujocoEnv):
             "distance": self.data.qpos[0],
             "height": self.data.qpos[2],
         }
+
+        info["other_metrics"] = metrics
+
         return observation, reward, terminated, False, info
 
     # resets the simulation
@@ -303,6 +324,7 @@ class CassieEnv(MujocoEnv):
         self.previous_action = np.zeros(10)
         self.phi = 0
         self.steps = 0
+        self.contact = False
         # self.rewards = {"R_biped": 0, "R_cmd": 0, "R_smooth": 0}
 
         self.gamma_modified = 1

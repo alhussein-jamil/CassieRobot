@@ -14,6 +14,7 @@ import ray
 log.basicConfig(level=log.DEBUG)
 
 
+
 if __name__ == "__main__":
     # To call the function I wan to use the following command: python run.py
     # -clean --simdir="" --logdir=""
@@ -117,11 +118,12 @@ if __name__ == "__main__":
 
     if not clean_run:
         checkpoint_path = loader.find_checkpoint(Trainer.__name__)
-        weights = loader.recover_weights(
-            Trainer,
-            checkpoint_path,
-            config,
-            old_implementation=old_implementation)
+
+        # weights = loader.recover_weights(
+        #     Trainer,
+        #     checkpoint_path,
+        #     config,
+        #     old_implementation=old_implementation)
 
     if is_dict:
         if not old_implementation:
@@ -164,13 +166,14 @@ if __name__ == "__main__":
             trainer = Trainer(config=combined, env="cassie-v0")
             log.info("generalised config")
 
-    if not clean_run and weights is not None:
-        if (
-            checkpoint_path is not None
-            and weights.keys() == trainer.get_policy().get_weights().keys()
-        ):
-            trainer.restore(checkpoint_path)
-            print("Weights loaded successfully")
+    if not clean_run: #and weights is not None:
+        trainer.restore(checkpoint_path)
+        # if (
+        #     checkpoint_path is not None
+        #     and weights.keys() == trainer.get_policy().get_weights().keys()
+        # ):
+        #     trainer.load_checkpoint(checkpoint_path)
+        #     print("Weights loaded successfully")
 
     # Define video codec and framerate
 

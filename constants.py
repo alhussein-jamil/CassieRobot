@@ -47,7 +47,8 @@ c_stance_frc = 0
 c_swing_spd = 0
 c_stance_spd = -1
 
-
+RIGHT_FOOT = 32
+LEFT_FOOT = 33
 # The camera configuration
 DEFAULT_CAMERA_CONFIG = {
     "trackbodyid": 0,  # use the body id of Cassie
@@ -74,10 +75,10 @@ exponential_bornes = {
     "q_vy": [0, 0.5],
     "q_vz": [0, 5],
     "q_frc": [0, 92500],
-    "q_spd": [0, 10],
+    "q_spd": [0, 2],
     "q_action": [0, 3],
     "q_orientation": [0, 1],
-    "q_torque": [0, 25],
+    "q_torque": [0, 30],
     "q_pelvis_acc": [0, 100],
 }
 multiplicators = {}
