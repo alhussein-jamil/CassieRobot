@@ -30,7 +30,7 @@ sensor_names = [
 # The constants are defined here
 THETA_LEFT = 0.5
 THETA_RIGHT = 0
-MAX_STEPS = 800
+MAX_STEPS = 1000000000
 OMEGA = 4.5
 STEPS_IN_CYCLE = 20
 a_swing = 0
