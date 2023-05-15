@@ -1,4 +1,3 @@
-
 from typing import Dict, Tuple
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.policy import Policy
@@ -16,7 +15,7 @@ import functions as f
 import mujoco as m
 import torch
 import logging as log
-import os 
+import os
 
 log.basicConfig(level=log.DEBUG)
 
@@ -34,10 +33,8 @@ class CassieEnv(MujocoEnv):
     def __init__(self, config, **kwargs):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
         utils.EzPickle.__init__(self, config, **kwargs)
-        self._terminate_when_unhealthy = config.get(
-            "terminate_when_unhealthy", True)
-        self._healthy_z_range = config.get("healthy_z_range", (0.35, 2.0))
-
+        self._terminate_when_unhealthy = config.get("terminate_when_unhealthy", True)
+        self._healthy_z_range = config.get("healthy_z_range", (0.45, 2.0))
 
         self.action_space = gym.spaces.Box(
             np.float32(c.low_action), np.float32(c.high_action)
@@ -47,12 +44,12 @@ class CassieEnv(MujocoEnv):
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
         self.previous_action = torch.zeros(10)
         self.gamma = config.get("gamma", 0.99)
-        
+
         self.observation_space = Box(
-            low=np.float32(
-                np.array(c.low_obs)), high=np.float32(
-                np.array(c.high_obs)), shape=(
-                25,))
+            low=np.float32(np.array(c.low_obs)),
+            high=np.float32(np.array(c.high_obs)),
+            shape=(25,),
+        )
 
         MujocoEnv.__init__(
             self,
@@ -61,13 +58,12 @@ class CassieEnv(MujocoEnv):
                 DIRPATH + "/cassie-mujoco-sim-master/model/cassie.xml",
             ),
             20,
-            render_mode=config.get(
-                "render_mode",
-                None),
+            render_mode=config.get("render_mode", None),
             observation_space=self.observation_space,
-            **kwargs)
-        self.render_mode = 'rgb_array'
-        
+            **kwargs
+        )
+        self.render_mode = "rgb_array"
+
     @property
     def healthy_reward(self):
         return (
@@ -79,28 +75,54 @@ class CassieEnv(MujocoEnv):
     def is_healthy(self):
         min_z, max_z = self._healthy_z_range
         # it is healthy if in range and one of the feet is on the ground
-        is_healthy = min_z < self.data.qpos[2] < max_z # and (self.contact == False or  self.data.geom_xpos[-2:,2][0] < 0.15 or self.data.geom_xpos[-2:,2][1] < 0.15)
-        
+        is_healthy = (
+            min_z < self.data.qpos[2] < max_z
+            and self.steps <= c.MAX_STEPS
+            and (self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1] <= 0)
+            and (
+                self.data.xpos[c.LEFT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
+                and self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
+            )
+            and (
+                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
+                < 0.6
+            )
+            and (
+                not self.contact
+                or self.data.xpos[c.LEFT_FOOT, 2] < 0.20
+                or self.data.xpos[c.RIGHT_FOOT, 2] < 0.20
+            )
+            and (
+                abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
+                < 1.0
+            )
+        )
+
         return is_healthy
 
     @property
     def terminated(self):
         terminated = (
             (not self.is_healthy)
-            if (self._terminate_when_unhealthy or self.steps > c.MAX_STEPS)
+            if (self._terminate_when_unhealthy)  # or self.steps > c.MAX_STEPS)
             else False
         )
         return terminated
 
     def _get_obs(self):
-        p = np.array([np.sin((2 * np.pi * (self.phi))),
-                      np.cos((2 * np.pi * (self.phi)))])
+        p = np.array(
+            [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
+        )
         temp = []
         # normalize the sensor data using sensor_ranges
         # self.data.sensor('pelvis-orientation').data
+        i = 0
         for key in c.sensor_ranges.keys():
-            temp.append(f.normalize(key, self.data.sensor(key).data))
-        temp = np.array(np.concatenate(temp))
+            for x in self.data.sensor(key).data:
+                temp.append(
+                    (x - c.obs_ranges[0][i]) / (c.obs_ranges[1][i] - c.obs_ranges[0][i])
+                )
+                i += 1
 
         # getting the read positions of the sensors and concatenate the lists
         return np.concatenate([temp, p])
@@ -111,21 +133,39 @@ class CassieEnv(MujocoEnv):
         qpos = self.data.qpos.flat.copy()
         qvel = self.data.qvel.flat.copy()
 
-
-
         qpos = qpos[c.pos_index]
         qvel = qvel[c.vel_index]
 
-        # Feet Contact Forces
-        contact_force_right_foot = np.zeros(6)
-        m.mj_contactForce(self.model, self.data, 0, contact_force_right_foot)
+        # # Feet Contact Forces
+        # contact_force_right_foot = np.zeros(6)
+        # m.mj_contactForce(self.model, self.data, 0, contact_force_right_foot)
+        # contact_force_left_foot = np.zeros(6)
+        # m.mj_contactForce(self.model, self.data, 1, contact_force_left_foot)
+
+        contacts = [contact.geom2 for contact in self.data.contact]
         contact_force_left_foot = np.zeros(6)
-        m.mj_contactForce(self.model, self.data, 1, contact_force_left_foot)
+        contact_force_right_foot = np.zeros(6)
+        if c.left_foot_force_idx in contacts:
+            m.mj_contactForce(
+                self.model,
+                self.data,
+                contacts.index(c.left_foot_force_idx),
+                contact_force_left_foot,
+            )
+        if c.right_foot_force_idx in contacts:
+            m.mj_contactForce(
+                self.model,
+                self.data,
+                contacts.index(c.right_foot_force_idx),
+                contact_force_right_foot,
+            )
 
-
-        #check if cassie hit the ground with feet 
-        if self.data.geom_xpos[-2:,2][0] < 0.10 or self.data.geom_xpos[-2:,2][1] < 0.10:
-            self.contact  = True
+        # check if cassie hit the ground with feet
+        if (
+            self.data.xpos[c.LEFT_FOOT, 2] < 0.12
+            or self.data.xpos[c.RIGHT_FOOT, 2] < 0.12
+        ):
+            self.contact = True
 
         # Some metrics to be used in the reward function
         q_vx = 1 - np.exp(
@@ -173,12 +213,11 @@ class CassieEnv(MujocoEnv):
                 ** 2
             )
         )
-        q_torque = 1 - \
-            np.exp(c.multiplicators["q_torque"] * np.linalg.norm(action))
+        q_torque = 1 - np.exp(c.multiplicators["q_torque"] * np.linalg.norm(action))
         q_pelvis_acc = 1 - np.exp(
             c.multiplicators["q_pelvis_acc"]
             * (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data))
-        )  
+        )
 
         self.exponents = {
             "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([c.X_VEL])) ** 2,
@@ -224,34 +263,39 @@ class CassieEnv(MujocoEnv):
             "q_torque": q_torque,
             "q_pelvis_acc": q_pelvis_acc,
         }
-        
-        
-        
+
         self.used_quantities = used_quantities
+
         # Responsable for the swing and stance phase
-        def i(phi, a, b): return f.p_between_von_mises(a, b, c.KAPPA, phi)
-        def i_swing_frc(phi): 
+        def i(phi, a, b):
+            return f.p_between_von_mises(a, b, c.KAPPA, phi)
+
+        def i_swing_frc(phi):
             return i(phi, c.a_swing, c.b_swing)
-        def i_swing_spd(phi): 
+
+        def i_swing_spd(phi):
             return i(phi, c.a_swing, c.b_swing)
-        def i_stance_spd(phi): 
+
+        def i_stance_spd(phi):
             return i(phi, c.a_stance, c.b_stance)
-        def i_stance_frc(phi): 
+
+        def i_stance_frc(phi):
             return i(phi, c.a_stance, c.b_stance)
 
-        def c_frc(phi): 
-            return c.c_swing_frc * i_swing_frc(
-            phi
-        ) + c.c_stance_frc * i_stance_frc(phi)
+        def c_frc(phi):
+            return c.c_swing_frc * i_swing_frc(phi) + c.c_stance_frc * i_stance_frc(phi)
 
-        def c_spd(phi): 
-            return c.c_swing_spd * i_swing_spd(
-            phi
-        ) + c.c_stance_spd * i_stance_spd(phi)
+        def c_spd(phi):
+            return c.c_swing_spd * i_swing_spd(phi) + c.c_stance_spd * i_stance_spd(phi)
 
-        r_cmd =( -1.0 * q_vx - 1.0 * q_vy - 1.0 * q_orientation - 0.5 * q_vz) / (1.0 + 1.0 + 1.0 + 0.5)
-        r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (1.0 + 1.0 + 1.0)
-        
+        r_cmd = (-1.0 * q_vx - 1.0 * q_vy - 1.0 * q_orientation - 0.5 * q_vz) / (
+            1.0 + 1.0 + 1.0 + 0.5
+        )
+
+        r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (
+            1.0 + 1.0 + 1.0
+        )
+
         r_biped = 0
         r_biped += c_frc(self.phi + c.THETA_LEFT) * q_left_frc
         r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc
@@ -259,26 +303,38 @@ class CassieEnv(MujocoEnv):
         r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
 
         r_biped /= 2.0
-        reward = (4.0 * r_biped + 3.0 * r_cmd + 1.0 * r_smooth) / (4.0+3.0+1.0)  + 1.0
 
-        rewards = {
-            "r_biped": r_biped,
-            "r_cmd": r_cmd,
-            "r_smooth": r_smooth}
-        self.C = {"C_frc_left": c_frc(self.phi + c.THETA_LEFT),
-                  "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
-                  "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
-                  "C_spd_right": c_spd(self.phi + c.THETA_RIGHT)}
+        reward = (4.0 * r_biped + 3.0 * r_cmd + 1.0 * r_smooth) / (
+            4.0 + 3.0 + 1.0
+        ) + 2.0  # ADD SOME EXTRA REWARD TO ENCOURAGE THE AGENT TO STAY ALIVE
+
+        rewards = {"r_biped": r_biped, "r_cmd": r_cmd, "r_smooth": r_smooth}
+
+        self.C = {
+            "C_frc_left": c_frc(self.phi + c.THETA_LEFT),
+            "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
+            "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
+            "C_spd_right": c_spd(self.phi + c.THETA_RIGHT),
+        }
+
         metrics = {
-            "dis_x": self.data.geom_xpos[16,0],
-            "dis_y": self.data.geom_xpos[16,1],
-            "dis_z": self.data.geom_xpos[16,2],
+            "dis_x": self.data.geom_xpos[16, 0],
+            "dis_y": self.data.geom_xpos[16, 1],
+            "dis_z": self.data.geom_xpos[16, 2],
             "vel_x": self.data.qvel[0],
             "vel_y": self.data.qvel[1],
             "vel_z": self.data.qvel[2],
-        
+            "feet_distance_x": abs(
+                self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0]
+            ),
+            "feet_distance_y": abs(
+                self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1]
+            ),
+            "feet_distance_z": abs(
+                self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2]
+            ),
         }
-        return reward,used_quantities,rewards,metrics
+        return reward, used_quantities, rewards, metrics
 
     # step in time
     def step(self, action):
@@ -292,7 +348,7 @@ class CassieEnv(MujocoEnv):
 
         observation = self._get_obs()
 
-        reward,used_quantities, rewards, metrics= self.compute_reward(action)
+        reward, used_quantities, rewards, metrics = self.compute_reward(action)
 
         terminated = self.terminated
 

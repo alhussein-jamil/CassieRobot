@@ -1,10 +1,10 @@
 training: 
 
-  gamma: 0.99
+  gamma: 0.90
 
-  lr: 0.0001
+  lr: 0.001
 
-  train_batch_size: 50000
+  train_batch_size: 15000
 
   model:
     fcnet_hiddens: [256, 256]
@@ -21,11 +21,13 @@ training:
 
   lambda_: 0.95
 
-  kl_coeff: 0.2
+  kl_coeff: 0.3
 
-  sgd_minibatch_size: 9000
+  sgd_minibatch_size: 7500
 
-  num_sgd_iter: 5
+  num_sgd_iter: 2
+
+  shuffle_sequences: true
 
   vf_loss_coeff: 0.5
 
@@ -33,24 +35,23 @@ training:
 
   clip_param: 0.3
 
-  kl_target: 0.2
+  vf_clip_param: 100
+
+  kl_target: 0.01
+
 
 environment:
 
   env: cassie-v0
 
   disable_env_checking: true
-
+  clip_actions: true
 framework:
 
   framework: torch
-  eager_tracing: true
-
-
 rollouts: 
-  recreate_failed_workers: true  
 
-
+  num_rollout_workers: 20
 
   num_envs_per_worker: 1
 
@@ -58,9 +59,11 @@ rollouts:
 
   batch_mode: truncate_episodes
 
-  observation_filter: NoFilter
-  
-  reuse_actors: true
+  recreate_failed_workers: true  
+
+  observation_filter: MeanStdFilter  
+
+  compress_observations: true  
 
 evaluation: 
 
@@ -68,8 +71,16 @@ evaluation:
 
   evaluation_duration: 10
 
-ressources:
-  num_gpus : 1
-  num_cpus : 20
+checkpointing: 
+
+  export_native_model_files: true
+
+debugging: 
+
+  log_sys_usage: false
+
+
+resources: 
+
+  num_gpus: 1
   num_cpus_per_worker: 1
-  num_gpus_per_worker: 0.05
