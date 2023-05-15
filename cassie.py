@@ -81,17 +81,17 @@ class CassieEnv(MujocoEnv):
             and (self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1] <= 0)
             and (
                 self.data.xpos[c.LEFT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
-                and self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
+                and 
+                self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
             )
             and (
-                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
-                < 0.6
+                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])< 1
             )
-            and (
-                not self.contact
-                or self.data.xpos[c.LEFT_FOOT, 2] < 0.20
-                or self.data.xpos[c.RIGHT_FOOT, 2] < 0.20
-            )
+            # and (
+            #     not self.contact
+            #     or self.data.xpos[c.LEFT_FOOT, 2] < 0.20
+            #     or self.data.xpos[c.RIGHT_FOOT, 2] < 0.20
+            # )
             and (
                 abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
                 < 1.0
