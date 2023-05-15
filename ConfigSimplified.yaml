@@ -43,14 +43,14 @@ environment:
 
 framework:
 
-  framework: tf2
+  framework: torch
   eager_tracing: true
 
 
 rollouts: 
   recreate_failed_workers: true  
 
-  num_workers: 20
+
 
   num_envs_per_worker: 1
 
@@ -70,5 +70,6 @@ evaluation:
 
 ressources:
   num_gpus : 1
+  num_cpus : 20
   num_cpus_per_worker: 1
   num_gpus_per_worker: 0.05

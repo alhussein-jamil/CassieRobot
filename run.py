@@ -1,6 +1,6 @@
 from ray.tune.logger import UnifiedLogger
-from ray.tune.logger import UnifiedLogger
-from ray.rllib.agents.ppo import PPOTrainer
+# from ray.rllib.agents.ppo import PPOTrainer
+
 from loader import Loader
 import mediapy as media
 import os
@@ -126,20 +126,28 @@ if __name__ == "__main__":
         #     old_implementation=old_implementation)
 
     if is_dict:
+
+        config["callbacks"] = MyCallbacks
         if not old_implementation:
-            trainer = Trainer().from_dict(config)
+            
+            trainer = Trainer().from_dict(config).build()
         else:
+            print("I am here")
+
             trainer = Trainer(
                 config=config,
                 env="cassie-v0",
                 logger_creator=lambda config: UnifiedLogger(config, log_dir),
-            )
+            ).build()
         log.info("dict config")
     else:
         splitted = loader.split_config(config)
         if not old_implementation:
+            t = Trainer()
+            t.from_dict({"callbacks": MyCallbacks})
+
             trainer = (
-                Trainer()
+                t
                 .environment(**splitted.get("environment", {}))
                 .rollouts(**splitted.get("rollouts", {}))
                 .checkpointing(**splitted.get("checkpointing", {}))

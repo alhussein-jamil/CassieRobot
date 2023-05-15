@@ -1,6 +1,6 @@
 from ray.rllib.algorithms.ppo import PPOConfig
 import torch
-from ray.rllib.agents.ppo import PPOTrainer
+# from ray.rllib.agents.ppo import PPOTrainer
 from ray.rllib.algorithms.ppo.ppo_torch_policy import PPOTorchPolicy
 from ray.rllib.algorithms.algorithm import Algorithm
 from ray.rllib.models.modelv2 import ModelV2
@@ -51,13 +51,13 @@ class CAPSTorchPolicy(PPOTorchPolicy):
         return loss
 
 
-class PPOCAPSTrainer(PPOTrainer, Algorithm):
-    def __init__(self, config=None, env=None):
-        PPOTrainer.__init__(self, config=config, env=env)
-        Algorithm.__init__(self, config=config, env=env)
+# class PPOCAPSTrainer(PPOTrainer, Algorithm):
+#     def __init__(self, config=None, env=None):
+#         PPOTrainer.__init__(self, config=config, env=env)
+#         Algorithm.__init__(self, config=config, env=env)
 
-    def get_default_policy_class(self, registry):
-        return CAPSTorchPolicy
+#     def get_default_policy_class(self, registry):
+#         return CAPSTorchPolicy
 
 
 class PPOCAPSConfig(PPOConfig):
