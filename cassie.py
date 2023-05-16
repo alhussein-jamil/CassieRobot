@@ -16,7 +16,7 @@ import mujoco as m
 import torch
 import logging as log
 import os
-
+from copy import deepcopy
 log.basicConfig(level=log.DEBUG)
 
 
@@ -46,8 +46,8 @@ class CassieEnv(MujocoEnv):
         self.gamma = config.get("gamma", 0.99)
 
         self.observation_space = Box(
-            low=np.float32(np.array(c.low_obs)),
-            high=np.float32(np.array(c.high_obs)),
+            low=-1.2,
+            high=1.2,
             shape=(25,),
         )
 
@@ -85,7 +85,7 @@ class CassieEnv(MujocoEnv):
                 self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
             )
             and (
-                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])< 1
+                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])< 0.4
             )
             # and (
             #     not self.contact
@@ -95,6 +95,9 @@ class CassieEnv(MujocoEnv):
             and (
                 abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
                 < 1.0
+            )
+            and (
+                abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2]) < 0.5
             )
         )
 
@@ -122,11 +125,36 @@ class CassieEnv(MujocoEnv):
                 temp.append(
                     (x - c.obs_ranges[0][i]) / (c.obs_ranges[1][i] - c.obs_ranges[0][i])
                 )
+                #temp.append(x)
                 i += 1
 
         # getting the read positions of the sensors and concatenate the lists
         return np.concatenate([temp, p])
+    
+    # def _get_obs(self):
+    #     sensors = (self.data.sensordata- c.sensor_obs_ranges[0,:]) / (c.sensor_obs_ranges[1,:] - c.sensor_obs_ranges[0,:])
 
+    #     p = np.array(
+    #         [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
+    #     )
+    #     return np.concatenate([sensors, p])
+    
+
+    def _get_symmetric_obs(self):
+
+        obs = self._get_obs()
+        symmetric_obs = deepcopy(obs)
+        symmetric_obs[0:8] = obs[8:16]
+        symmetric_obs[8:16] = obs[0:8]
+        symmetric_obs[17] = -obs[17]
+        symmetric_obs[19] = -obs[19]
+        symmetric_obs[21] = -obs[21]
+        symmetric_obs[24] = -obs[24]
+        symmetric_obs[29] = obs[30]
+        symmetric_obs[30] = obs[29]
+
+        return symmetric_obs
+    
     # computes the reward
     def compute_reward(self, action):
         # Extract some proxies
@@ -218,7 +246,7 @@ class CassieEnv(MujocoEnv):
             c.multiplicators["q_pelvis_acc"]
             * (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data))
         )
-
+        
         self.exponents = {
             "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([c.X_VEL])) ** 2,
             "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([c.Y_VEL])) ** 2,
@@ -306,7 +334,7 @@ class CassieEnv(MujocoEnv):
 
         reward = (4.0 * r_biped + 3.0 * r_cmd + 1.0 * r_smooth) / (
             4.0 + 3.0 + 1.0
-        ) + 2.0  # ADD SOME EXTRA REWARD TO ENCOURAGE THE AGENT TO STAY ALIVE
+        ) + 1.0  # ADD SOME EXTRA REWARD TO ENCOURAGE THE AGENT TO STAY ALIVE
 
         rewards = {"r_biped": r_biped, "r_cmd": r_cmd, "r_smooth": r_smooth}
 

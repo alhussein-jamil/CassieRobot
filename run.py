@@ -13,8 +13,6 @@ import ray
 
 log.basicConfig(level=log.DEBUG)
 
-
-
 if __name__ == "__main__":
     # To call the function I wan to use the following command: python run.py
     # -clean --simdir="" --logdir=""
@@ -117,7 +115,7 @@ if __name__ == "__main__":
             Trainer = PPOCAPSTrainer
 
     if not clean_run:
-        checkpoint_path = loader.find_checkpoint(Trainer.__name__)
+        checkpoint_path = loader.find_checkpoint("PPO")
 
         # weights = loader.recover_weights(
         #     Trainer,
@@ -225,7 +223,7 @@ if __name__ == "__main__":
                 i,
                 result["episode_reward_mean"],
                 result["custom_metrics"]["custom_quantities_q_left_frc_mean"],
-                result["custom_metrics"]["custom_quantities_q_left_spd_mean"],
+                result["custom_metrics"]["custom_quantities_q_left_spd_mean"]
             )
         )
 
