@@ -1,8 +1,8 @@
-gamma: 0.99
+gamma: 0.85
 
 lr: 0.001
 
-train_batch_size: 22500
+train_batch_size: 40000
 
 model:
   fcnet_hiddens: [256, 256]
@@ -21,9 +21,9 @@ lambda_: 0.95
 
 kl_coeff: 0.2
 
-sgd_minibatch_size: 7500
+sgd_minibatch_size: 10000
 
-num_sgd_iter: 3
+num_sgd_iter: 4
 
 shuffle_sequences: true
 
@@ -63,7 +63,5 @@ evaluation_interval: 2
 
 evaluation_duration: 10
 
-
-
-num_gpus: 1
+num_gpus: 0
 num_cpus_per_worker: 1

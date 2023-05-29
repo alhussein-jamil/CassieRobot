@@ -27,6 +27,10 @@ def action_dist(a, b):
 
 def normalize(name, value):
     # normalize the value to be between 0 and 1
-    return (value - c.sensor_ranges[name][0]) / (
-        c.sensor_ranges[name][1] - c.sensor_ranges[name][0]
+    return (value - c.obs_ranges[name][0]) / (
+        c.obs_ranges[name][1] - c.obs_ranges[name][0]
     )
+
+def von_mises_approx(a, b, kappa, x):
+    KappaEQ = 6.072980 * np.log(0.055739 * kappa + 2.365671) + -3.936459
+    return 1/2+1/2*(np.tanh(KappaEQ*np.sin(2*np.pi*x)))

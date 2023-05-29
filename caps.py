@@ -10,6 +10,7 @@ from ray.rllib.models.torch.torch_action_dist import TorchDistributionWrapper
 from typing import Type, Union, List
 import functions as f
 
+from ray.rllib.algorithms.ppo import PPO
 
 class CAPSTorchPolicy(PPOTorchPolicy):
     sigma = 0.01
@@ -60,7 +61,7 @@ class CAPSTorchPolicy(PPOTorchPolicy):
 #         return CAPSTorchPolicy
 
 
-class PPOCAPSConfig(PPOConfig):
+class PPOCAPS(PPO):
     def __init__(self, algo_class=None):
         super().__init__(algo_class)
 

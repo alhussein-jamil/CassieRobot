@@ -174,6 +174,7 @@ if __name__ == "__main__":
 
     if not clean_run: #and weights is not None:
         trainer.restore(checkpoint_path)
+        # trainer.get_policy().to(torch.device("cuda:0"))
         # if (
         #     checkpoint_path is not None
         #     and weights.keys() == trainer.get_policy().get_weights().keys()
