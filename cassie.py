@@ -1,22 +1,25 @@
-from typing import Dict, Tuple
-from ray.rllib.policy.sample_batch import SampleBatch
-from ray.rllib.policy import Policy
-from ray.rllib.env import BaseEnv
-from ray.rllib.algorithms.callbacks import DefaultCallbacks
-from ray.rllib.evaluation import Episode, RolloutWorker
-from ray.rllib.evaluation.episode_v2 import EpisodeV2
-import numpy as np
-import gymnasium as gym
-import gymnasium.utils as utils
-from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
-from gymnasium.spaces import Box
-import constants as c
-import functions as f
-import mujoco as m
-import torch
 import logging as log
 import os
 from copy import deepcopy
+from typing import Dict, Tuple
+
+import gymnasium as gym
+import gymnasium.utils as utils
+import mujoco as m
+import numpy as np
+import torch
+from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
+from gymnasium.spaces import Box
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
+from ray.rllib.env import BaseEnv
+from ray.rllib.evaluation import Episode, RolloutWorker
+from ray.rllib.evaluation.episode_v2 import EpisodeV2
+from ray.rllib.policy import Policy
+from ray.rllib.policy.sample_batch import SampleBatch
+
+import constants as c
+import functions as f
+
 log.basicConfig(level=log.DEBUG)
 
 
@@ -34,8 +37,8 @@ class CassieEnv(MujocoEnv):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
         utils.EzPickle.__init__(self, config, **kwargs)
         self._terminate_when_unhealthy = config.get("terminate_when_unhealthy", True)
-        self._healthy_z_range = config.get("healthy_z_range", (0.45, 2.0))
-
+        self._healthy_z_range = config.get("healthy_z_range", (0.60, 1.5))
+        print("healthy z range: ", self._healthy_z_range)
         self.action_space = gym.spaces.Box(
             np.float32(c.low_action), np.float32(c.high_action)
         )
@@ -75,32 +78,57 @@ class CassieEnv(MujocoEnv):
     def is_healthy(self):
         min_z, max_z = self._healthy_z_range
         # it is healthy if in range and one of the feet is on the ground
+        constraints = {
+            "Healthy Pelvis Range ": min_z < self.data.qpos[2] < max_z,
+            "Feet Under Pelvis Level ": self.data.xpos[c.LEFT_FOOT, 2]
+            < self.data.xpos[c.PELVIS, 2]
+            and self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2],
+            "Feet Not Crossed": self.data.xpos[c.LEFT_FOOT, 1]
+            <= self.data.xpos[c.RIGHT_FOOT, 1],
+            "Feet Not Too Far Apart X": abs(
+                self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0]
+            )
+            < 1.5,
+            "Feet Not Too Close Y ": abs(
+                self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1]
+            )
+            < 0.5,
+            "One foot touching ground": self.data.xpos[c.LEFT_FOOT, 2] < 0.18
+            or self.data.xpos[c.RIGHT_FOOT, 2] < 0.18,
+            "First Contact with Ground": self.contact,
+            "Steps Less Than Max": self.steps <= c.MAX_STEPS,
+        }
         is_healthy = (
-            min_z < self.data.qpos[2] < max_z
+            min_z < self.data.xpos[c.PELVIS, 2] < max_z
             and self.steps <= c.MAX_STEPS
             and (self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1] <= 0)
             and (
-                self.data.xpos[c.LEFT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
-                and 
-                self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2]
+                self.data.xpos[c.LEFT_FOOT, 2] < self.data.xpos[c.PELVIS, 2] - 0.3
+                and self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2] - 0.3
             )
             and (
-                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])< 0.4
+                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
+                < 1.0
             )
             # and (
             #     not self.contact
-            #     or self.data.xpos[c.LEFT_FOOT, 2] < 0.20
-            #     or self.data.xpos[c.RIGHT_FOOT, 2] < 0.20
+            #     or self.data.xpos[c.LEFT_FOOT, 2] < 0.15
+            #     or self.data.xpos[c.RIGHT_FOOT, 2] < 0.15
             # )
             and (
                 abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
-                < 1.0
+                < 0.5
             )
-            and (
-                abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2]) < 0.5
-            )
+            # and (
+            #     abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2]) < 0.5
+            # )
         )
 
+        # if not is_healthy:
+        #     print("Unhealthy: " + str(self.steps))
+        #     for key, value in constraints.items():
+        #         if not value:
+        #             print("\t"+key )
         return is_healthy
 
     @property
@@ -125,12 +153,16 @@ class CassieEnv(MujocoEnv):
                 temp.append(
                     (x - c.obs_ranges[0][i]) / (c.obs_ranges[1][i] - c.obs_ranges[0][i])
                 )
-                #temp.append(x)
+                # temp.append(x)
                 i += 1
-
+        self.obs =np.clip(
+            np.concatenate([temp, p]),
+            self.observation_space.low,
+            self.observation_space.high,
+        )
         # getting the read positions of the sensors and concatenate the lists
-        return np.concatenate([temp, p])
-    
+        return  self.obs
+
     # def _get_obs(self):
     #     sensors = (self.data.sensordata- c.sensor_obs_ranges[0,:]) / (c.sensor_obs_ranges[1,:] - c.sensor_obs_ranges[0,:])
 
@@ -138,10 +170,8 @@ class CassieEnv(MujocoEnv):
     #         [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
     #     )
     #     return np.concatenate([sensors, p])
-    
 
     def _get_symmetric_obs(self):
-
         obs = self._get_obs()
         symmetric_obs = deepcopy(obs)
         symmetric_obs[0:8] = obs[8:16]
@@ -154,7 +184,7 @@ class CassieEnv(MujocoEnv):
         symmetric_obs[30] = obs[29]
 
         return symmetric_obs
-    
+
     # computes the reward
     def compute_reward(self, action):
         # Extract some proxies
@@ -247,6 +277,21 @@ class CassieEnv(MujocoEnv):
             * (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data))
         )
         
+        q_rel_pos_left = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.linalg.norm(self.data.xpos[c.PELVIS][0] -  self.data.xpos[c.LEFT_FOOT][0]))  
+        q_rel_pos_right = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.linalg.norm(self.data.xpos[c.PELVIS][0] -  self.data.xpos[c.RIGHT_FOOT][0]))
+
+        
+
+        cycle_steps =float(self.steps % c.STEPS_IN_CYCLE) / c.STEPS_IN_CYCLE
+        phase_left = 1 if 0.75>cycle_steps >=0.5 else -1 if 1>cycle_steps >=0.75 else 0
+        phase_right = 1 if 0.25>cycle_steps >=0 else -1 if 0.5>cycle_steps >=0.25 else 0
+
+        q_phase_left = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.clip(phase_left *  (0.2+self.data.xpos[c.LEFT_FOOT][0] -self.data.xpos[c.RIGHT_FOOT][0]), 0, np.inf))
+        q_phase_right = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.clip(phase_right *  (0.2+self.data.xpos[c.RIGHT_FOOT][0] -self.data.xpos[c.LEFT_FOOT][0]), 0, np.inf))
+        
+        q_feet_orientation_left = 1 - np.exp(c.multiplicators["q_feet_orientation"] * np.abs(self.data.sensordata[c.LEFT_FOOT_JOINT]- c.target_feet_orientation))
+        q_feet_orientation_right = 1 - np.exp(c.multiplicators["q_feet_orientation"] * np.abs(self.data.sensordata[c.RIGHT_FOOT_JOINT]- c.target_feet_orientation))
+
         self.exponents = {
             "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([c.X_VEL])) ** 2,
             "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([c.Y_VEL])) ** 2,
@@ -277,6 +322,12 @@ class CassieEnv(MujocoEnv):
                 self.data.sensor("pelvis-linear-acceleration").data
                 - self.model.opt.gravity.data
             ),
+
+            "feet distance" : np.linalg.norm(self.data.xpos[c.LEFT_FOOT][0] -  self.data.xpos[c.RIGHT_FOOT][0]),
+            "pelvis_height " :  self.data.xpos[c.PELVIS, 2],
+            "oriantation_right_foot" : np.abs(self.data.sensordata[c.RIGHT_FOOT_JOINT]- c.target_feet_orientation),
+            "oriantation_left_foot" : np.abs(self.data.sensordata[c.LEFT_FOOT_JOINT]- c.target_feet_orientation),
+
         }
         used_quantities = {
             "q_vx": q_vx,
@@ -290,13 +341,18 @@ class CassieEnv(MujocoEnv):
             "q_orientation": q_orientation,
             "q_torque": q_torque,
             "q_pelvis_acc": q_pelvis_acc,
+            "q_phase_left": q_phase_left,
+            "q_phase_right": q_phase_right,
+            "q_feet_orientation_left": q_feet_orientation_left,
+            "q_feet_orientation_right": q_feet_orientation_right,
+
         }
 
         self.used_quantities = used_quantities
 
         # Responsable for the swing and stance phase
         def i(phi, a, b):
-            return f.p_between_von_mises(a, b, c.KAPPA, phi)
+            return f.von_mises_approx(a, b, c.KAPPA, phi)
 
         def i_swing_frc(phi):
             return i(phi, c.a_swing, c.b_swing)
@@ -316,14 +372,24 @@ class CassieEnv(MujocoEnv):
         def c_spd(phi):
             return c.c_swing_spd * i_swing_spd(phi) + c.c_stance_spd * i_stance_spd(phi)
 
-        r_cmd = (-1.0 * q_vx - 1.0 * q_vy - 1.0 * q_orientation - 0.5 * q_vz) / (
-            1.0 + 1.0 + 1.0 + 0.5
+        r_alternate = (-1.0 * q_phase_left - 1.0 * q_phase_right) / (1.0 + 1.0)
+
+        r_cmd = (-1.0 * q_vx - 1.0 * q_vy - 1.0 * q_orientation - 0.5 * q_vz -1.0 * q_feet_orientation_left - 1.0 * q_feet_orientation_right) / (
+            1.0 + 1.0 + 1.0 + 0.5 + 1.0 + 1.0
         )
 
         r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (
             1.0 + 1.0 + 1.0
         )
-
+        # if(self.steps > 0):
+        #     print((c_frc(self.phi + c.THETA_LEFT) - self.C["C_frc_left"])*c.STEPS_IN_CYCLE < -5 and  c_frc(self.phi + c.THETA_LEFT) < -0.8 )
+        # if(c_frc(self.phi + c.THETA_LEFT)  < 0 ):
+        #     print(self.C["C_frc_left"])
+        #     if(self.C["C_frc_left"] != -1.0):
+        #         print("left foot changed")
+        # r_alt = c_frc(self.phi + c.THETA_LEFT) * relative_pos_left + c_frc(self.phi + c.THETA_RIGHT) * relative_pos_right
+        # r_alt *= 10
+        # r_alt = np.clip(r_alt, -1, 0)
         r_biped = 0
         r_biped += c_frc(self.phi + c.THETA_LEFT) * q_left_frc
         r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc
@@ -331,14 +397,18 @@ class CassieEnv(MujocoEnv):
         r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
 
         r_biped /= 2.0
-
-        reward = (4.0 * r_biped + 3.0 * r_cmd + 1.0 * r_smooth) / (
-            4.0 + 3.0 + 1.0
+ 
+        reward = (4.0 * r_biped + 3.0 * r_cmd + 3.0* r_alternate +1.0 * r_smooth) / (
+            4.0 + 3.0 + 3.0 + 1.0
         ) + 1.0  # ADD SOME EXTRA REWARD TO ENCOURAGE THE AGENT TO STAY ALIVE
 
-        rewards = {"r_biped": r_biped, "r_cmd": r_cmd, "r_smooth": r_smooth}
+        rewards = {"r_biped": r_biped, "r_cmd": r_cmd, "r_smooth": r_smooth  , "r_alternate" : r_alternate}
 
         self.C = {
+            "sin" : self.obs[-2],
+            "cos" : self.obs[-1],
+            "phase_right" : phase_right,
+            "phase_left" : phase_left,
             "C_frc_left": c_frc(self.phi + c.THETA_LEFT),
             "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
             "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
@@ -401,11 +471,12 @@ class CassieEnv(MujocoEnv):
         return observation, reward, terminated, False, info
 
     # resets the simulation
-    def reset_model(self):
+    def reset_model(self, seed=0):
         m.mj_inverse(self.model, self.data)
         noise_low = -self._reset_noise_scale
         noise_high = self._reset_noise_scale
         self.previous_action = np.zeros(10)
+        self.phi = np.random.randint(0, c.STEPS_IN_CYCLE) / c.STEPS_IN_CYCLE
         self.phi = 0
         self.steps = 0
         self.contact = False

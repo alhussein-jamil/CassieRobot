@@ -2,12 +2,12 @@ gamma: 0.99
 
 lr: 0.001
 
-train_batch_size: 15000
+train_batch_size: 50000
 
 model:
   fcnet_hiddens: [256, 256]
   fcnet_activation: swish
-  vf_share_layers: true
+  vf_share_layers: false
   free_log_std: true 
   
 optimizer: 
@@ -19,12 +19,13 @@ use_gae: true
 
 lambda_: 0.95
 
-kl_coeff: 0.3
+kl_coeff: 0.2
 
-sgd_minibatch_size: 7500
+sgd_minibatch_size: 9000
 
-num_sgd_iter: 2
+num_sgd_iter: 5
 
+shuffle_sequences: true
 
 vf_loss_coeff: 0.5
 
@@ -34,12 +35,14 @@ clip_param: 0.3
 
 kl_target: 0.01
 
-vf_clip_param: 10.0
+vf_clip_param: 1000.0
+
 env: cassie-v0
 
 disable_env_checking: true
 
 clip_actions: true
+
 
 framework: torch
 
@@ -56,12 +59,9 @@ recreate_failed_workers: true
 
 observation_filter: MeanStdFilter  
 
-
 evaluation_interval: 2
 
 evaluation_duration: 10
 
-
-
-num_gpus: 1
+num_gpus: 0 
 num_cpus_per_worker: 1
