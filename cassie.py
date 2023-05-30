@@ -16,7 +16,7 @@ from ray.rllib.evaluation import Episode, RolloutWorker
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.policy import Policy
 from ray.rllib.policy.sample_batch import SampleBatch
-
+import yaml
 import constants as c
 import functions as f
 
@@ -33,17 +33,34 @@ class CassieEnv(MujocoEnv):
         "render_fps": 100,
     }
 
-    def __init__(self, config, **kwargs):
+    def __init__(self, config):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
-        utils.EzPickle.__init__(self, config, **kwargs)
+        config = yaml.safe_load(open( "dict_config.yaml", "r"))["env_config"]
+        print(config)
         self._terminate_when_unhealthy = config.get("terminate_when_unhealthy", True)
-        self._healthy_z_range = config.get("healthy_z_range", (0.60, 1.5))
-        print("healthy z range: ", self._healthy_z_range)
+        self._healthy_pelvis_z_range = config.get("pelvis_height", (0.60, 1.5))
+        self._healthy_feet_distance_x = config.get("feet_distance_x", (0.0, 1.0))
+        self._healthy_feet_distance_y = config.get("feet_distance_y",(0.0, 0.6))
+        self._healthy_feet_distance_z = config.get("feet_distance_z", (0.0, 0.5))
+        self._healthy_dis_to_pelvis = config.get("feet_pelvis_height", 0.3)
+        self._healthy_feet_height = config.get("feet_height", (0.0, 0.4))
+        self._max_steps = config.get("max_simulation_steps", 400)
+        self.steps_per_cycle = config.get("steps_per_cycle", 30)
+        self.a_swing = config.get("a_swing", 0)
+        self.a_stance = config.get("a_stance", 0.5)
+        self.b_swing = config.get("b_swing", 0.5)
+        self.b_stance = config.get("b_stance", 1)
+        self.kappa = config.get("kappa", 25)
+        self.x_cmd_vel = config.get("x_cmd_vel", 0.8)
+        self.y_cmd_vel = config.get("y_cmd_vel", 0)
+        self.z_cmd_vel = config.get("z_cmd_vel",0 )
+
         self.action_space = gym.spaces.Box(
             np.float32(c.low_action), np.float32(c.high_action)
         )
 
         self._reset_noise_scale = config.get("reset_noise_scale", 1e-2)
+
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
         self.previous_action = torch.zeros(10)
         self.gamma = config.get("gamma", 0.99)
@@ -62,8 +79,7 @@ class CassieEnv(MujocoEnv):
             ),
             20,
             render_mode=config.get("render_mode", None),
-            observation_space=self.observation_space,
-            **kwargs
+            observation_space=self.observation_space
         )
         self.render_mode = "rgb_array"
 
@@ -76,60 +92,65 @@ class CassieEnv(MujocoEnv):
 
     @property
     def is_healthy(self):
-        min_z, max_z = self._healthy_z_range
+        min_z, max_z = self._healthy_pelvis_z_range
+
+
+        self.isdone = "not done"
+
+        if not min_z < self.data.xpos[c.PELVIS, 2] < max_z:
+            self.isdone = "Pelvis not in range"
+
+        if not self.steps <= self._max_steps:
+            self.isdone = "Max steps reached"
+
+        if not self._healthy_feet_distance_x[0] < abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0]) < self._healthy_feet_distance_x[1]:
+            self.isdone = "Feet distance out of range along x-axis"
+       
+        if not self._healthy_feet_distance_y[0] < abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1]) < self._healthy_feet_distance_y[1]:
+            self.isdone = "Feet distance out of range along y-axis"
+        
+        if not self._healthy_feet_distance_z[0] < abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2]) < self._healthy_feet_distance_z[1]:
+            self.isdone = "Feet distance out of range along z-axis"
+
+        if self.contact and self.data.xpos[c.LEFT_FOOT, 2] >= self._healthy_feet_height and self.data.xpos[c.RIGHT_FOOT, 2] >= self._healthy_feet_height:
+            self.isdone = "Both Feet not on the ground"
+
+        if not self._healthy_dis_to_pelvis < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.LEFT_FOOT, 2]:
+            self.isdone = "Left foot too close to pelvis"
+
+        if not self._healthy_dis_to_pelvis < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.RIGHT_FOOT, 2]:
+            self.isdone = "Right foot too close to pelvis"
+        
+        if self.data.xpos[c.LEFT_FOOT, 1] > self.data.xpos[c.RIGHT_FOOT, 1]:
+            self.isdone = "Feet Crossed"
+
         # it is healthy if in range and one of the feet is on the ground
-        constraints = {
-            "Healthy Pelvis Range ": min_z < self.data.qpos[2] < max_z,
-            "Feet Under Pelvis Level ": self.data.xpos[c.LEFT_FOOT, 2]
-            < self.data.xpos[c.PELVIS, 2]
-            and self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2],
-            "Feet Not Crossed": self.data.xpos[c.LEFT_FOOT, 1]
-            <= self.data.xpos[c.RIGHT_FOOT, 1],
-            "Feet Not Too Far Apart X": abs(
-                self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0]
-            )
-            < 1.5,
-            "Feet Not Too Close Y ": abs(
-                self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1]
-            )
-            < 0.5,
-            "One foot touching ground": self.data.xpos[c.LEFT_FOOT, 2] < 0.18
-            or self.data.xpos[c.RIGHT_FOOT, 2] < 0.18,
-            "First Contact with Ground": self.contact,
-            "Steps Less Than Max": self.steps <= c.MAX_STEPS,
-        }
-        is_healthy = (
-            min_z < self.data.xpos[c.PELVIS, 2] < max_z
-            and self.steps <= c.MAX_STEPS
-            and (self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1] <= 0)
-            and (
-                self.data.xpos[c.LEFT_FOOT, 2] < self.data.xpos[c.PELVIS, 2] - 0.3
-                and self.data.xpos[c.RIGHT_FOOT, 2] < self.data.xpos[c.PELVIS, 2] - 0.3
-            )
-            and (
-                abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
-                < 1.0
-            )
-            # and (
-            #     not self.contact
-            #     or self.data.xpos[c.LEFT_FOOT, 2] < 0.15
-            #     or self.data.xpos[c.RIGHT_FOOT, 2] < 0.15
-            # )
-            and (
-                abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
-                < 0.5
-            )
-            # and (
-            #     abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2]) < 0.5
-            # )
-        )
+        # is_healthy = (
+
+        #     and 
+        #     and (self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1] <= 0)
+        #     and 
+        #     and self._healthy_dis_to_pelvis
+        #     < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.RIGHT_FOOT, 2]
+        #     and 
+        #     and (
+
+        #     )
+        #     and self._healthy_feet_distance_y[0]
+        #     < abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
+        #     < self._healthy_feet_distance_y[1]
+        #     and (
+        #         abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2])
+        #         < 0.5
+        #     )
+        # )
 
         # if not is_healthy:
         #     print("Unhealthy: " + str(self.steps))
         #     for key, value in constraints.items():
         #         if not value:
         #             print("\t"+key )
-        return is_healthy
+        return self.isdone == "not done"
 
     @property
     def terminated(self):
@@ -155,13 +176,13 @@ class CassieEnv(MujocoEnv):
                 )
                 # temp.append(x)
                 i += 1
-        self.obs =np.clip(
+        self.obs = np.clip(
             np.concatenate([temp, p]),
             self.observation_space.low,
             self.observation_space.high,
         )
         # getting the read positions of the sensors and concatenate the lists
-        return  self.obs
+        return self.obs
 
     # def _get_obs(self):
     #     sensors = (self.data.sensordata- c.sensor_obs_ranges[0,:]) / (c.sensor_obs_ranges[1,:] - c.sensor_obs_ranges[0,:])
@@ -228,15 +249,15 @@ class CassieEnv(MujocoEnv):
         # Some metrics to be used in the reward function
         q_vx = 1 - np.exp(
             c.multiplicators["q_vx"]
-            * np.linalg.norm(np.array([qvel[0]]) - np.array([c.X_VEL])) ** 2
+            * np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel])) ** 2
         )
         q_vy = 1 - np.exp(
             c.multiplicators["q_vy"]
-            * np.linalg.norm(np.array([qvel[1]]) - np.array([c.Y_VEL])) ** 2
+            * np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel])) ** 2
         )
         q_vz = 1 - np.exp(
             c.multiplicators["q_vz"]
-            * np.linalg.norm(np.array([qvel[2]]) - np.array([c.Z_VEL])) ** 2
+            * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])) ** 2
         )
 
         q_left_frc = 1.0 - np.exp(
@@ -276,26 +297,59 @@ class CassieEnv(MujocoEnv):
             c.multiplicators["q_pelvis_acc"]
             * (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data))
         )
-        
-        q_rel_pos_left = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.linalg.norm(self.data.xpos[c.PELVIS][0] -  self.data.xpos[c.LEFT_FOOT][0]))  
-        q_rel_pos_right = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.linalg.norm(self.data.xpos[c.PELVIS][0] -  self.data.xpos[c.RIGHT_FOOT][0]))
 
-        
+        cycle_steps = float(self.steps % self.steps_per_cycle) / self.steps_per_cycle
+        phase_left = (
+            1 if 0.75 > cycle_steps >= 0.5 else -1 if 1 > cycle_steps >= 0.75 else 0
+        )
+        phase_right = (
+            1 if 0.25 > cycle_steps >= 0 else -1 if 0.5 > cycle_steps >= 0.25 else 0
+        )
 
-        cycle_steps =float(self.steps % c.STEPS_IN_CYCLE) / c.STEPS_IN_CYCLE
-        phase_left = 1 if 0.75>cycle_steps >=0.5 else -1 if 1>cycle_steps >=0.75 else 0
-        phase_right = 1 if 0.25>cycle_steps >=0 else -1 if 0.5>cycle_steps >=0.25 else 0
+        q_phase_left = 1.0 - np.exp(
+            c.multiplicators["q_marche_distance"]
+            * np.clip(
+                phase_left
+                * (
+                    0.2
+                    + self.data.xpos[c.LEFT_FOOT][0]
+                    - self.data.xpos[c.RIGHT_FOOT][0]
+                ),
+                0,
+                np.inf,
+            )
+        )
+        q_phase_right = 1.0 - np.exp(
+            c.multiplicators["q_marche_distance"]
+            * np.clip(
+                phase_right
+                * (
+                    0.2
+                    + self.data.xpos[c.RIGHT_FOOT][0]
+                    - self.data.xpos[c.LEFT_FOOT][0]
+                ),
+                0,
+                np.inf,
+            )
+        )
 
-        q_phase_left = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.clip(phase_left *  (0.2+self.data.xpos[c.LEFT_FOOT][0] -self.data.xpos[c.RIGHT_FOOT][0]), 0, np.inf))
-        q_phase_right = 1.0 - np.exp(c.multiplicators["q_marche_distance"] * np.clip(phase_right *  (0.2+self.data.xpos[c.RIGHT_FOOT][0] -self.data.xpos[c.LEFT_FOOT][0]), 0, np.inf))
-        
-        q_feet_orientation_left = 1 - np.exp(c.multiplicators["q_feet_orientation"] * np.abs(self.data.sensordata[c.LEFT_FOOT_JOINT]- c.target_feet_orientation))
-        q_feet_orientation_right = 1 - np.exp(c.multiplicators["q_feet_orientation"] * np.abs(self.data.sensordata[c.RIGHT_FOOT_JOINT]- c.target_feet_orientation))
+        q_feet_orientation_left = 1 - np.exp(
+            c.multiplicators["q_feet_orientation"]
+            * np.abs(
+                self.data.sensordata[c.LEFT_FOOT_JOINT] - c.target_feet_orientation
+            )
+        )
+        q_feet_orientation_right = 1 - np.exp(
+            c.multiplicators["q_feet_orientation"]
+            * np.abs(
+                self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
+            )
+        )
 
         self.exponents = {
-            "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([c.X_VEL])) ** 2,
-            "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([c.Y_VEL])) ** 2,
-            "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([c.Z_VEL])) ** 2,
+            "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel])) ** 2,
+            "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel])) ** 2,
+            "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])) ** 2,
             "q_left_frc": np.linalg.norm(contact_force_left_foot) ** 2,
             "q_right_frc": np.linalg.norm(contact_force_right_foot) ** 2,
             "q_left_spd": np.linalg.norm(qvel[12]) ** 2,
@@ -322,12 +376,16 @@ class CassieEnv(MujocoEnv):
                 self.data.sensor("pelvis-linear-acceleration").data
                 - self.model.opt.gravity.data
             ),
-
-            "feet distance" : np.linalg.norm(self.data.xpos[c.LEFT_FOOT][0] -  self.data.xpos[c.RIGHT_FOOT][0]),
-            "pelvis_height " :  self.data.xpos[c.PELVIS, 2],
-            "oriantation_right_foot" : np.abs(self.data.sensordata[c.RIGHT_FOOT_JOINT]- c.target_feet_orientation),
-            "oriantation_left_foot" : np.abs(self.data.sensordata[c.LEFT_FOOT_JOINT]- c.target_feet_orientation),
-
+            "feet distance": np.linalg.norm(
+                self.data.xpos[c.LEFT_FOOT][0] - self.data.xpos[c.RIGHT_FOOT][0]
+            ),
+            "pelvis_height ": self.data.xpos[c.PELVIS, 2],
+            "oriantation_right_foot": np.abs(
+                self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
+            ),
+            "oriantation_left_foot": np.abs(
+                self.data.sensordata[c.LEFT_FOOT_JOINT] - c.target_feet_orientation
+            ),
         }
         used_quantities = {
             "q_vx": q_vx,
@@ -345,26 +403,25 @@ class CassieEnv(MujocoEnv):
             "q_phase_right": q_phase_right,
             "q_feet_orientation_left": q_feet_orientation_left,
             "q_feet_orientation_right": q_feet_orientation_right,
-
         }
 
         self.used_quantities = used_quantities
 
         # Responsable for the swing and stance phase
         def i(phi, a, b):
-            return f.von_mises_approx(a, b, c.KAPPA, phi)
+            return f.von_mises_approx(a, b, self.kappa, phi)
 
         def i_swing_frc(phi):
-            return i(phi, c.a_swing, c.b_swing)
+            return i(phi, self.a_swing, self.b_swing)
 
         def i_swing_spd(phi):
-            return i(phi, c.a_swing, c.b_swing)
+            return i(phi, self.a_swing, self.b_swing)
 
         def i_stance_spd(phi):
-            return i(phi, c.a_stance, c.b_stance)
+            return i(phi, self.a_stance, self.b_stance)
 
         def i_stance_frc(phi):
-            return i(phi, c.a_stance, c.b_stance)
+            return i(phi, self.a_stance, self.b_stance)
 
         def c_frc(phi):
             return c.c_swing_frc * i_swing_frc(phi) + c.c_stance_frc * i_stance_frc(phi)
@@ -374,9 +431,14 @@ class CassieEnv(MujocoEnv):
 
         r_alternate = (-1.0 * q_phase_left - 1.0 * q_phase_right) / (1.0 + 1.0)
 
-        r_cmd = (-1.0 * q_vx - 1.0 * q_vy - 1.0 * q_orientation - 0.5 * q_vz -1.0 * q_feet_orientation_left - 1.0 * q_feet_orientation_right) / (
-            1.0 + 1.0 + 1.0 + 0.5 + 1.0 + 1.0
-        )
+        r_cmd = (
+            -1.0 * q_vx
+            - 1.0 * q_vy
+            - 1.0 * q_orientation
+            - 0.5 * q_vz
+            - 1.0 * q_feet_orientation_left
+            - 1.0 * q_feet_orientation_right
+        ) / (1.0 + 1.0 + 1.0 + 0.5 + 1.0 + 1.0)
 
         r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (
             1.0 + 1.0 + 1.0
@@ -397,18 +459,23 @@ class CassieEnv(MujocoEnv):
         r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
 
         r_biped /= 2.0
- 
-        reward = (4.0 * r_biped + 3.0 * r_cmd + 3.0* r_alternate +1.0 * r_smooth) / (
+
+        reward = (4.0 * r_biped + 3.0 * r_cmd + 3.0 * r_alternate + 1.0 * r_smooth) / (
             4.0 + 3.0 + 3.0 + 1.0
         ) + 1.0  # ADD SOME EXTRA REWARD TO ENCOURAGE THE AGENT TO STAY ALIVE
 
-        rewards = {"r_biped": r_biped, "r_cmd": r_cmd, "r_smooth": r_smooth  , "r_alternate" : r_alternate}
+        rewards = {
+            "r_biped": r_biped,
+            "r_cmd": r_cmd,
+            "r_smooth": r_smooth,
+            "r_alternate": r_alternate,
+        }
 
         self.C = {
-            "sin" : self.obs[-2],
-            "cos" : self.obs[-1],
-            "phase_right" : phase_right,
-            "phase_left" : phase_left,
+            "sin": self.obs[-2],
+            "cos": self.obs[-1],
+            "phase_right": phase_right,
+            "phase_left": phase_left,
             "C_frc_left": c_frc(self.phi + c.THETA_LEFT),
             "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
             "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
@@ -451,7 +518,7 @@ class CassieEnv(MujocoEnv):
         terminated = self.terminated
 
         self.steps += 1
-        self.phi += 1.0 / c.STEPS_IN_CYCLE
+        self.phi += 1.0 / self.steps_per_cycle
         self.phi = self.phi % 1
 
         self.previous_action = action
@@ -476,7 +543,7 @@ class CassieEnv(MujocoEnv):
         noise_low = -self._reset_noise_scale
         noise_high = self._reset_noise_scale
         self.previous_action = np.zeros(10)
-        self.phi = np.random.randint(0, c.STEPS_IN_CYCLE) / c.STEPS_IN_CYCLE
+        self.phi = np.random.randint(0, self.steps_per_cycle) / self.steps_per_cycle
         self.phi = 0
         self.steps = 0
         self.contact = False
