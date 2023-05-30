@@ -1,6 +1,6 @@
-gamma: 0.85
+gamma: 0.99
 
-lr: 0.001
+lr: 0.0001
 
 train_batch_size: 40000
 
@@ -65,3 +65,23 @@ evaluation_duration: 10
 
 num_gpus: 0
 num_cpus_per_worker: 1
+
+env_config: 
+  # The constants are defined here
+  steps_per_cycle : 30
+  a_swing : 0
+  b_swing : 0.5
+  a_stance : 0.5
+  b_stance : 1
+  kappa : 25
+  x_cmd_vel : 1.5
+  y_cmd_vel : 0
+  z_cmd_vel : 0
+  terminate_when_unhealthy : true
+  max_simulation_steps : 400
+  pelvis_height: [0.6,1.5]
+  feet_distance_x: [0.0,1.0]
+  feet_distance_y: [0.0,0.5]
+  feet_distance_z: [0.0,0.5]
+  feet_pelvis_height: 0.3
+  feet_height : 0.6

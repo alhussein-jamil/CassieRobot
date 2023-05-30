@@ -30,23 +30,24 @@ sensor_names = [
 # The constants are defined here
 THETA_LEFT = 0.5
 THETA_RIGHT = 0
-MAX_STEPS = 400
-OMEGA = 4.5
-STEPS_IN_CYCLE = 30
-a_swing = 0
-b_swing = 0.5
-a_stance = 0.5
-b_stance = 1
+# MAX_STEPS = 400
+# OMEGA = 4.5
+# STEPS_IN_CYCLE = 30
+# a_swing = 0
+# b_swing = 0.5
+# a_stance = 0.5
+# b_stance = 1
+# KAPPA = 25
+# X_VEL = 1.5
+# Y_VEL = 0
+# Z_VEL = 0
 FORWARD_QUARTERNIONS = np.array([1, 0, 0, 0])
-KAPPA = 25
-X_VEL = 1.5
-Y_VEL = 0
-Z_VEL = 0
+
 c_swing_frc = -1
 c_stance_frc = 0
 c_swing_spd = 0
 c_stance_spd = -1
-
+OMEGA = 4.5
 RIGHT_FOOT = 13
 LEFT_FOOT = 25
 
@@ -55,7 +56,9 @@ LEFT_FOOT_JOINT = 7
 
 target_feet_orientation = - np.pi / 4.0 
 
+
 PELVIS = 1
+
 right_foot_force_idx = 49
 left_foot_force_idx = 33
 # The camera configuration
@@ -80,7 +83,7 @@ actuator_ranges = {
 }
 
 exponential_bornes = {
-    "q_vx": [0, X_VEL],
+    "q_vx": [0, 1.0],
     "q_vy": [0, 0.5],
     "q_vz": [0, 5],
     "q_frc": [0, 1e6],

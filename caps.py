@@ -1,13 +1,10 @@
-from ray.rllib.algorithms.ppo import PPOConfig
 import torch
-# from ray.rllib.agents.ppo import PPOTrainer
 from ray.rllib.algorithms.ppo.ppo_torch_policy import PPOTorchPolicy
-from ray.rllib.algorithms.algorithm import Algorithm
 from ray.rllib.models.modelv2 import ModelV2
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.typing import TensorType
 from ray.rllib.models.torch.torch_action_dist import TorchDistributionWrapper
-from typing import Type, Union, List
+from typing import Type, Union, List, Any, Dict
 import functions as f
 
 from ray.rllib.algorithms.ppo import PPO
@@ -17,7 +14,7 @@ class CAPSTorchPolicy(PPOTorchPolicy):
     lambda_s = 1000
     lambda_t = 1
 
-    def __init__(self, observation_space, action_space, config):
+    def __init__(self, observation_space : Any, action_space: Any, config: Dict):
         super().__init__(observation_space, action_space, config)
 
     def loss(
@@ -50,15 +47,6 @@ class CAPSTorchPolicy(PPOTorchPolicy):
         loss += CAPSTorchPolicy.lambda_t * L_T
 
         return loss
-
-
-# class PPOCAPSTrainer(PPOTrainer, Algorithm):
-#     def __init__(self, config=None, env=None):
-#         PPOTrainer.__init__(self, config=config, env=env)
-#         Algorithm.__init__(self, config=config, env=env)
-
-#     def get_default_policy_class(self, registry):
-#         return CAPSTorchPolicy
 
 
 class PPOCAPS(PPO):

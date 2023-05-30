@@ -1,6 +1,6 @@
 from ray.tune.logger import UnifiedLogger
 # from ray.rllib.agents.ppo import PPOTrainer
-
+from ray.rllib.algorithms.ppo import PPOConfig
 from loader import Loader
 import mediapy as media
 import os
