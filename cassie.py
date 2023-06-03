@@ -36,7 +36,6 @@ class CassieEnv(MujocoEnv):
     def __init__(self, config):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
         config = yaml.safe_load(open( "dict_config.yaml", "r"))["env_config"]
-        print(config)
         self._terminate_when_unhealthy = config.get("terminate_when_unhealthy", True)
         self._healthy_pelvis_z_range = config.get("pelvis_height", (0.60, 1.5))
         self._healthy_feet_distance_x = config.get("feet_distance_x", (0.0, 1.0))
@@ -124,32 +123,7 @@ class CassieEnv(MujocoEnv):
         if self.data.xpos[c.LEFT_FOOT, 1] > self.data.xpos[c.RIGHT_FOOT, 1]:
             self.isdone = "Feet Crossed"
 
-        # it is healthy if in range and one of the feet is on the ground
-        # is_healthy = (
 
-        #     and 
-        #     and (self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1] <= 0)
-        #     and 
-        #     and self._healthy_dis_to_pelvis
-        #     < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.RIGHT_FOOT, 2]
-        #     and 
-        #     and (
-
-        #     )
-        #     and self._healthy_feet_distance_y[0]
-        #     < abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
-        #     < self._healthy_feet_distance_y[1]
-        #     and (
-        #         abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2])
-        #         < 0.5
-        #     )
-        # )
-
-        # if not is_healthy:
-        #     print("Unhealthy: " + str(self.steps))
-        #     for key, value in constraints.items():
-        #         if not value:
-        #             print("\t"+key )
         return self.isdone == "not done"
 
     @property
@@ -166,8 +140,8 @@ class CassieEnv(MujocoEnv):
             [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
         )
         temp = []
+        
         # normalize the sensor data using sensor_ranges
-        # self.data.sensor('pelvis-orientation').data
         i = 0
         for key in c.sensor_ranges.keys():
             for x in self.data.sensor(key).data:
@@ -184,13 +158,7 @@ class CassieEnv(MujocoEnv):
         # getting the read positions of the sensors and concatenate the lists
         return self.obs
 
-    # def _get_obs(self):
-    #     sensors = (self.data.sensordata- c.sensor_obs_ranges[0,:]) / (c.sensor_obs_ranges[1,:] - c.sensor_obs_ranges[0,:])
 
-    #     p = np.array(
-    #         [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
-    #     )
-    #     return np.concatenate([sensors, p])
 
     def _get_symmetric_obs(self):
         obs = self._get_obs()
@@ -215,12 +183,7 @@ class CassieEnv(MujocoEnv):
         qpos = qpos[c.pos_index]
         qvel = qvel[c.vel_index]
 
-        # # Feet Contact Forces
-        # contact_force_right_foot = np.zeros(6)
-        # m.mj_contactForce(self.model, self.data, 0, contact_force_right_foot)
-        # contact_force_left_foot = np.zeros(6)
-        # m.mj_contactForce(self.model, self.data, 1, contact_force_left_foot)
-
+        # Feet Contact Forces
         contacts = [contact.geom2 for contact in self.data.contact]
         contact_force_left_foot = np.zeros(6)
         contact_force_right_foot = np.zeros(6)
@@ -443,15 +406,7 @@ class CassieEnv(MujocoEnv):
         r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (
             1.0 + 1.0 + 1.0
         )
-        # if(self.steps > 0):
-        #     print((c_frc(self.phi + c.THETA_LEFT) - self.C["C_frc_left"])*c.STEPS_IN_CYCLE < -5 and  c_frc(self.phi + c.THETA_LEFT) < -0.8 )
-        # if(c_frc(self.phi + c.THETA_LEFT)  < 0 ):
-        #     print(self.C["C_frc_left"])
-        #     if(self.C["C_frc_left"] != -1.0):
-        #         print("left foot changed")
-        # r_alt = c_frc(self.phi + c.THETA_LEFT) * relative_pos_left + c_frc(self.phi + c.THETA_RIGHT) * relative_pos_right
-        # r_alt *= 10
-        # r_alt = np.clip(r_alt, -1, 0)
+    
         r_biped = 0
         r_biped += c_frc(self.phi + c.THETA_LEFT) * q_left_frc
         r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc

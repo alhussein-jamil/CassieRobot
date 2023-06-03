@@ -48,10 +48,3 @@ class CAPSTorchPolicy(PPOTorchPolicy):
 
         return loss
 
-
-class PPOCAPS(PPO):
-    def __init__(self, algo_class=None):
-        super().__init__(algo_class)
-
-    def get_default_policy_class(self, registry):
-        return CAPSTorchPolicy

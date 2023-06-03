@@ -101,30 +101,17 @@ if __name__ == "__main__":
         config = args.config
 
     config = loader.load_config(config)
-
+    Trainer = PPOConfig
     if not args.caps:
         log.info("Running without CAPS regularization")
-
-        Trainer = PPOConfig
-        if old_implementation:
-            Trainer = PPOTrainer
     else:
         log.info("Running with CAPS regularization")
-        Trainer = PPOCAPSConfig
-        if old_implementation:
-            Trainer = PPOCAPSTrainer
+        Trainer.get_default_policy_class = lambda : CAPSTorchPolicy
 
     if not clean_run:
         checkpoint_path = loader.find_checkpoint("PPO")
 
-        # weights = loader.recover_weights(
-        #     Trainer,
-        #     checkpoint_path,
-        #     config,
-        #     old_implementation=old_implementation)
-
     if is_dict:
-
         config["callbacks"] = MyCallbacks
         if not old_implementation:
             
@@ -174,22 +161,13 @@ if __name__ == "__main__":
 
     if not clean_run: #and weights is not None:
         trainer.restore(checkpoint_path)
-        # trainer.get_policy().to(torch.device("cuda:0"))
-        # if (
-        #     checkpoint_path is not None
-        #     and weights.keys() == trainer.get_policy().get_weights().keys()
-        # ):
-        #     trainer.load_checkpoint(checkpoint_path)
-        #     print("Weights loaded successfully")
 
     # Define video codec and framerate
-
-    fps = 30
-
+    fps = config["run"]["sim_fps"]
     # Training loop
     max_test_i = 0
-    checkpoint_frequency = 5
-    simulation_frequency = 10
+    checkpoint_frequency = config["run"]["chkpt_freq"]
+    simulation_frequency = config["run"]["sim_freq"]
     env = CassieEnv({})
     env.render_mode = "rgb_array"
 
@@ -207,9 +185,6 @@ if __name__ == "__main__":
     # Create folder for test
     test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
     os.makedirs(test_dir, exist_ok=True)
-
-    # Define video codec and framerate
-    fps = 30
 
     # Set initial iteration count
     i = trainer.iteration if hasattr(trainer, "iteration") else 0
