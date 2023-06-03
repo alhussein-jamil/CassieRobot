@@ -85,3 +85,9 @@ env_config:
   feet_distance_z: [0.0,0.5]
   feet_pelvis_height: 0.3
   feet_height : 0.6
+
+
+run:
+  sim_fps : 30
+  sim_freq : 20
+  chkpt_freq : 30
