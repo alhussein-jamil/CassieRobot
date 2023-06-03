@@ -10,7 +10,7 @@ import argparse
 from caps import *
 import logging as log
 import ray
-
+from pathlib import Path
 log.basicConfig(level=log.DEBUG)
 
 if __name__ == "__main__":
@@ -75,10 +75,24 @@ if __name__ == "__main__":
         check_freq = 5
 
     clean_run = args.cleanrun
+    load = False
     if clean_run:
         log.info("Running clean run")
     else:
-        log.info("Resuming from previous run")
+        runs = Path.glob( Path.home() / "ray_results" ,"PPO_cassie-v0*")
+
+        for run in list(runs)[::-1]:
+            print("Loading run", run)
+            checkpoints = Path.glob(run, "checkpoint_*")
+            for checkpoint in list(checkpoints)[::-1]:
+                print("Loading checkpoint", checkpoint)
+                load = True
+                break
+            if load:
+                break
+            else:
+                print("No checkpoint found here")
+
     if args.simdir is not None:
         sim_dir = args.simdir
         log.info("Simulation directory: {}".format(sim_dir))
@@ -108,8 +122,7 @@ if __name__ == "__main__":
         log.info("Running with CAPS regularization")
         Trainer.get_default_policy_class = lambda : CAPSTorchPolicy
 
-    if not clean_run:
-        checkpoint_path = loader.find_checkpoint("PPO")
+
 
     if is_dict:
         config["callbacks"] = MyCallbacks
@@ -160,7 +173,8 @@ if __name__ == "__main__":
             log.info("generalised config")
 
     if not clean_run: #and weights is not None:
-        trainer.restore(checkpoint_path)
+        if(load):
+            trainer.restore(checkpoint)
 
     # Define video codec and framerate
     fps = config["run"]["sim_fps"]
