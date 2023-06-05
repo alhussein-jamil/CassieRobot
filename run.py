@@ -11,6 +11,9 @@ from caps import *
 import logging as log
 import ray
 from pathlib import Path
+from ray.rllib.models import ModelCatalog
+
+
 log.basicConfig(level=log.DEBUG)
 
 if __name__ == "__main__":
@@ -49,7 +52,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Uses old implementation of Trainers",
     )
-
+    
     args = argparser.parse_args()
 
     # flush gpu memory
@@ -60,6 +63,10 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
 
+    ModelCatalog.register_custom_model(
+        "caps_loss",
+        CAPSTorchPolicy
+    )
     is_dict = args.configIsDict
     ray.init(ignore_reinit_error=True,num_gpus=1)
     if args.simfreq is not None:
@@ -116,66 +123,47 @@ if __name__ == "__main__":
 
     config = loader.load_config(config)
     Trainer = PPOConfig
+
+    
+    # if not args.caps:
+    #     log.info("Running without CAPS regularization")
+    # else:
+    #     log.info("Running with CAPS regularization")
+    #     config["model"]["custom_loss"] = CAPSTorchPolicy.loss
+
+    if is_dict:
+        trainer = Trainer().from_dict({**config, "callbacks": MyCallbacks})
+
+    else:
+        splitted = loader.split_config(config)
+
+        trainer = (
+            Trainer()
+            .environment(**splitted.get("environment", {}))
+            .rollouts(**splitted.get("rollouts", {}))
+            .checkpointing(**splitted.get("checkpointing", {}))
+            .debugging(**splitted.get("debugging", {}))
+            .training(**splitted.get("training", {}))
+            .framework(**splitted.get("framework", {}))
+            .resources(**splitted.get("resources", {}))
+            .evaluation(**splitted.get("evaluation", {}))
+            .callbacks(callbacks=MyCallbacks)
+        )
+        
+    trainer = trainer.build()
+
+
     if not args.caps:
         log.info("Running without CAPS regularization")
     else:
         log.info("Running with CAPS regularization")
-        Trainer.get_default_policy_class = lambda : CAPSTorchPolicy
-
-
-
-    if is_dict:
-        config["callbacks"] = MyCallbacks
-        if not old_implementation:
-            
-            trainer = Trainer().from_dict(config).build()
-        else:
-            print("I am here")
-
-            trainer = Trainer(
-                config=config,
-                env="cassie-v0",
-                logger_creator=lambda config: UnifiedLogger(config, log_dir),
-            ).build()
-        log.info("dict config")
-    else:
-        splitted = loader.split_config(config)
-        if not old_implementation:
-            t = Trainer()
-            t.from_dict({"callbacks": MyCallbacks})
-
-            trainer = (
-                t
-                .environment(**splitted.get("environment", {}))
-                .rollouts(**splitted.get("rollouts", {}))
-                .checkpointing(**splitted.get("checkpointing", {}))
-                .debugging(**splitted.get("debugging", {}))
-                .training(**splitted.get("training", {}))
-                .framework(**splitted.get("framework", {}))
-                .resources(**splitted.get("resources", {}))
-                .evaluation(**splitted.get("evaluation", {}))
-                .build()
-            )
-        else:
-            # combine all splitted into one dictionary
-            combined = {
-                **splitted.get("environment", {}),
-                **splitted.get("rollouts", {}),
-                **splitted.get("checkpointing", {}),
-                **splitted.get("debugging", {}),
-                **splitted.get("training", {}),
-                **splitted.get("framework", {}),
-                **splitted.get("resources", {}),
-                **splitted.get("evaluation", {}),
-            }
-            combined["callbacks"] = MyCallbacks
-            trainer = Trainer(config=combined, env="cassie-v0")
-            log.info("generalised config")
+        trainer.get_policy().loss= CAPSTorchPolicy.loss
+    #build trainer
 
     if not clean_run: #and weights is not None:
         if(load):
             trainer.restore(checkpoint)
-
+    
     # Define video codec and framerate
     fps = config["run"]["sim_fps"]
     # Training loop
