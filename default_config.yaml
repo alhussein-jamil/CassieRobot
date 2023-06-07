@@ -1,0 +1,93 @@
+training: 
+  environment:
+    env: cassie-v0
+    clip_actions: true
+    normalize_actions: false
+    disable_env_checking: true
+    env_config: 
+      # The constants are defined here
+      steps_per_cycle : 30
+      a_swing : 0
+      b_swing : 0.5
+      a_stance : 0.5
+      b_stance : 1
+      kappa : 25
+      x_cmd_vel : 1.5
+      y_cmd_vel : 0
+      z_cmd_vel : 0
+      terminate_when_unhealthy : true
+      max_simulation_steps : 400
+      pelvis_height: [0.6,1.5]
+      feet_distance_x: [0.0,1.0]
+      feet_distance_y: [0.0,0.5]
+      feet_distance_z: [0.0,0.5]
+      feet_pelvis_height: 0.3
+      feet_height : 0.6
+      model : cassie
+      render_mode: rgb_array
+    render_env : true
+
+  rollouts: 
+    num_rollout_workers: 20
+    num_envs_per_worker: 1
+    rollout_fragment_length: auto
+    batch_mode: truncate_episodes
+    observation_filter: MeanStdFilter
+
+
+  debugging: 
+    logger_creator: ???
+    log_level: INFO
+  
+
+  training:
+    gamma: 0.99
+    lr: 0.0001
+    train_batch_size: 40000
+    model:
+      # custom_model: caps_model
+      fcnet_hiddens: [256, 256]
+      fcnet_activation: swish
+      vf_share_layers: false
+      free_log_std: true
+    optimizer:
+      type: adam
+    
+    use_critic: true
+
+    use_gae: true
+
+    lambda_: 0.95
+
+    kl_coeff: 0.2
+
+    sgd_minibatch_size: 10000
+
+    num_sgd_iter: 20
+
+    shuffle_sequences: true
+
+    vf_loss_coeff: 0.5
+
+    entropy_coeff: 0.01
+
+    clip_param: 0.3
+
+    kl_target: 0.01
+
+    vf_clip_param: 1000.0
+
+  framework:
+    framework: torch
+    eager_tracing: false
+
+  resources:
+    num_gpus: 1
+    num_cpus_per_worker: 1
+    num_gpus_per_worker: 0
+
+
+run:
+  sim_fps : 30
+  sim_freq : 20
+  chkpt_freq : 30
