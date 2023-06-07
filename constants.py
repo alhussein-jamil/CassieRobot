@@ -1,10 +1,12 @@
 import numpy as np
 import torch
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda'
 
 print ('Device is ', device)
 # names of the sensors and number of readings for each
-
+caps_lamda_s = 1000
+caps_lamda_t = 1
+caps_sigma = 0.01
 sensor_names = [
     "left-foot-input",
     "left-foot-output",

@@ -4,10 +4,10 @@ from copy import deepcopy
 from typing import Dict, Tuple
 
 import gymnasium as gym
-import gymnasium.utils as utils
 import mujoco as m
 import numpy as np
 import torch
+import yaml
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
@@ -16,7 +16,7 @@ from ray.rllib.evaluation import Episode, RolloutWorker
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.policy import Policy
 from ray.rllib.policy.sample_batch import SampleBatch
-import yaml
+
 import constants as c
 import functions as f
 
@@ -33,36 +33,35 @@ class CassieEnv(MujocoEnv):
         "render_fps": 100,
     }
 
-    def __init__(self, config):
+    def __init__(self, env_config):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
-        config = yaml.safe_load(open( "dict_config.yaml", "r"))["env_config"]
-        self._terminate_when_unhealthy = config.get("terminate_when_unhealthy", True)
-        self._healthy_pelvis_z_range = config.get("pelvis_height", (0.60, 1.5))
-        self._healthy_feet_distance_x = config.get("feet_distance_x", (0.0, 1.0))
-        self._healthy_feet_distance_y = config.get("feet_distance_y",(0.0, 0.6))
-        self._healthy_feet_distance_z = config.get("feet_distance_z", (0.0, 0.5))
-        self._healthy_dis_to_pelvis = config.get("feet_pelvis_height", 0.3)
-        self._healthy_feet_height = config.get("feet_height", (0.0, 0.4))
-        self._max_steps = config.get("max_simulation_steps", 400)
-        self.steps_per_cycle = config.get("steps_per_cycle", 30)
-        self.a_swing = config.get("a_swing", 0)
-        self.a_stance = config.get("a_stance", 0.5)
-        self.b_swing = config.get("b_swing", 0.5)
-        self.b_stance = config.get("b_stance", 1)
-        self.kappa = config.get("kappa", 25)
-        self.x_cmd_vel = config.get("x_cmd_vel", 0.8)
-        self.y_cmd_vel = config.get("y_cmd_vel", 0)
-        self.z_cmd_vel = config.get("z_cmd_vel",0 )
-
+        self._terminate_when_unhealthy = env_config.get("terminate_when_unhealthy", True)
+        self._healthy_pelvis_z_range = env_config.get("pelvis_height", (0.60, 1.5))
+        self._healthy_feet_distance_x = env_config.get("feet_distance_x", (0.0, 1.0))
+        self._healthy_feet_distance_y = env_config.get("feet_distance_y", (0.0, 0.6))
+        self._healthy_feet_distance_z = env_config.get("feet_distance_z", (0.0, 0.5))
+        self._healthy_dis_to_pelvis = env_config.get("feet_pelvis_height", 0.3)
+        self._healthy_feet_height = env_config.get("feet_height", (0.0, 0.4))
+        self._max_steps = env_config.get("max_simulation_steps", 400)
+        self.steps_per_cycle = env_config.get("steps_per_cycle", 30)
+        self.a_swing = env_config.get("a_swing", 0)
+        self.a_stance = env_config.get("a_stance", 0.5)
+        self.b_swing = env_config.get("b_swing", 0.5)
+        self.b_stance = env_config.get("b_stance", 1)
+        self.kappa = env_config.get("kappa", 25)
+        self.x_cmd_vel = env_config.get("x_cmd_vel", 0.8)
+        self.y_cmd_vel = env_config.get("y_cmd_vel", 0)
+        self.z_cmd_vel = env_config.get("z_cmd_vel", 0)
+        self.model_file = env_config.get("model", "cassie")
         self.action_space = gym.spaces.Box(
             np.float32(c.low_action), np.float32(c.high_action)
         )
 
-        self._reset_noise_scale = config.get("reset_noise_scale", 1e-2)
+        self._reset_noise_scale = env_config.get("reset_noise_scale", 1e-2)
 
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
         self.previous_action = torch.zeros(10)
-        self.gamma = config.get("gamma", 0.99)
+        self.gamma = env_config.get("gamma", 0.99)
 
         self.observation_space = Box(
             low=-1.2,
@@ -72,13 +71,10 @@ class CassieEnv(MujocoEnv):
 
         MujocoEnv.__init__(
             self,
-            config.get(
-                "model_path",
-                DIRPATH + "/cassie-mujoco-sim-master/model/cassie.xml",
-            ),
-            20,
-            render_mode=config.get("render_mode", None),
-            observation_space=self.observation_space
+            model_path = DIRPATH + "/cassie-mujoco-sim-master/model/{}.xml".format(self.model_file),
+            frame_skip = 20,
+            render_mode=env_config.get("render_mode", None),
+            observation_space=self.observation_space,
         )
         self.render_mode = "rgb_array"
 
@@ -93,7 +89,6 @@ class CassieEnv(MujocoEnv):
     def is_healthy(self):
         min_z, max_z = self._healthy_pelvis_z_range
 
-
         self.isdone = "not done"
 
         if not min_z < self.data.xpos[c.PELVIS, 2] < max_z:
@@ -102,27 +97,48 @@ class CassieEnv(MujocoEnv):
         if not self.steps <= self._max_steps:
             self.isdone = "Max steps reached"
 
-        if not self._healthy_feet_distance_x[0] < abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0]) < self._healthy_feet_distance_x[1]:
+        if (
+            not self._healthy_feet_distance_x[0]
+            < abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
+            < self._healthy_feet_distance_x[1]
+        ):
             self.isdone = "Feet distance out of range along x-axis"
-       
-        if not self._healthy_feet_distance_y[0] < abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1]) < self._healthy_feet_distance_y[1]:
+
+        if (
+            not self._healthy_feet_distance_y[0]
+            < abs(self.data.xpos[c.LEFT_FOOT, 1] - self.data.xpos[c.RIGHT_FOOT, 1])
+            < self._healthy_feet_distance_y[1]
+        ):
             self.isdone = "Feet distance out of range along y-axis"
-        
-        if not self._healthy_feet_distance_z[0] < abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2]) < self._healthy_feet_distance_z[1]:
+
+        if (
+            not self._healthy_feet_distance_z[0]
+            < abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2])
+            < self._healthy_feet_distance_z[1]
+        ):
             self.isdone = "Feet distance out of range along z-axis"
 
-        if self.contact and self.data.xpos[c.LEFT_FOOT, 2] >= self._healthy_feet_height and self.data.xpos[c.RIGHT_FOOT, 2] >= self._healthy_feet_height:
+        if (
+            self.contact
+            and self.data.xpos[c.LEFT_FOOT, 2] >= self._healthy_feet_height
+            and self.data.xpos[c.RIGHT_FOOT, 2] >= self._healthy_feet_height
+        ):
             self.isdone = "Both Feet not on the ground"
 
-        if not self._healthy_dis_to_pelvis < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.LEFT_FOOT, 2]:
+        if (
+            not self._healthy_dis_to_pelvis
+            < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.LEFT_FOOT, 2]
+        ):
             self.isdone = "Left foot too close to pelvis"
 
-        if not self._healthy_dis_to_pelvis < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.RIGHT_FOOT, 2]:
+        if (
+            not self._healthy_dis_to_pelvis
+            < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.RIGHT_FOOT, 2]
+        ):
             self.isdone = "Right foot too close to pelvis"
-        
+
         if self.data.xpos[c.LEFT_FOOT, 1] > self.data.xpos[c.RIGHT_FOOT, 1]:
             self.isdone = "Feet Crossed"
-
 
         return self.isdone == "not done"
 
@@ -140,7 +156,7 @@ class CassieEnv(MujocoEnv):
             [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
         )
         temp = []
-        
+
         # normalize the sensor data using sensor_ranges
         i = 0
         for key in c.sensor_ranges.keys():
@@ -157,8 +173,6 @@ class CassieEnv(MujocoEnv):
         )
         # getting the read positions of the sensors and concatenate the lists
         return self.obs
-
-
 
     def _get_symmetric_obs(self):
         obs = self._get_obs()
@@ -310,9 +324,12 @@ class CassieEnv(MujocoEnv):
         )
 
         self.exponents = {
-            "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel])) ** 2,
-            "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel])) ** 2,
-            "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])) ** 2,
+            "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel]))
+            ** 2,
+            "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel]))
+            ** 2,
+            "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel]))
+            ** 2,
             "q_left_frc": np.linalg.norm(contact_force_left_foot) ** 2,
             "q_right_frc": np.linalg.norm(contact_force_right_foot) ** 2,
             "q_left_spd": np.linalg.norm(qvel[12]) ** 2,
@@ -406,7 +423,7 @@ class CassieEnv(MujocoEnv):
         r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (
             1.0 + 1.0 + 1.0
         )
-    
+
         r_biped = 0
         r_biped += c_frc(self.phi + c.THETA_LEFT) * q_left_frc
         r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc
