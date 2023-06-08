@@ -99,5 +99,5 @@ run:
   sim_fps: 30
   sim_freq: 20
   chkpt_freq: 30
-  epochs: 1000
+  epochs: 2
   hyper_par_iter: 10

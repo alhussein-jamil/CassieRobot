@@ -19,6 +19,8 @@ import datetime
 import tempfile
 import wandb
 import torch
+import yaml 
+import numpy as np
 
 torch.cuda.empty_cache()
 
@@ -34,7 +36,7 @@ def apply_f_to_nested_dict(f, nested_dict):
         elif isinstance(v, list):
             for i in range(len(v)):
                 v[i] = f(v[i])
-        else:
+        elif isinstance(v, float):
             nested_dict[k] = f(v)
 
 def custom_log_creator(custom_path, custom_str):
@@ -132,7 +134,19 @@ if __name__ == "__main__":
     config = loader.load_config(config)
     wandb.init(project="Cassie",  config=config["training"]["environment"]["env_config"])
     Trainer = PPOConfig
-    
+    # Create sim directory if it doesn't exist
+    if not os.path.exists(sim_dir):
+        os.makedirs(sim_dir)
+        # Find the latest directory named test_i in the sim directory
+    latest_directory = max(
+        [int(d.split("_")[-1]) for d in os.listdir(sim_dir) if d.startswith("test_")],
+        default=0
+    )
+    max_test_i = latest_directory + 1
+
+    # Create folder for test
+    test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
+    os.makedirs(test_dir, exist_ok=True)
     for i in range(config["run"]["hyper_par_iter"]):
         print("Hyperparameter iteration: {}".format(i))
         training_config = config["training"]
@@ -161,37 +175,28 @@ if __name__ == "__main__":
         # Define video codec and framerate
         fps = config["run"]["sim_fps"]
 
-        # Training loop
-        max_test_i = 0
+
         checkpoint_frequency = config["run"]["chkpt_freq"]
         simulation_frequency = config["run"]["sim_freq"]
         print("Creating test environment")
         env = CassieEnv({})
         env.render_mode = "rgb_array"
 
-        # Create sim directory if it doesn't exist
-        if not os.path.exists(sim_dir):
-            os.makedirs(sim_dir)
-
-        # Find the latest directory named test_i in the sim directory
-        latest_directory = max(
-            [int(d.split("_")[-1]) for d in os.listdir(sim_dir) if d.startswith("test_")],
-            default=0
-        )
-        max_test_i = latest_directory + 1
-
-        # Create folder for test
-        test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
-        os.makedirs(test_dir, exist_ok=True)
 
 
+        os.mkdir(os.path.join(test_dir, "config_{}".format(i)))
+        #save config
+        with open(os.path.join(test_dir, "config_{}".format(i), "config.yaml"), "w") as f:
+            yaml.dump(config, f)
+        
 
         for epoch in range(trainer.iteration if hasattr(trainer, "iteration") else 0,config["run"].get("epochs", 1000)):
             # Train for one iteration
             result = trainer.train()
+            wandb.log({"iteration": i, **training_config, "loss": result["episode_reward_mean"]})
             print(
                 "Episode {} Reward Mean {} Q_lef_frc {} Q_left_spd {}".format(
-                    i,
+                    epoch,
                     result["episode_reward_mean"],
                     result["custom_metrics"]["custom_quantities_q_left_frc_mean"],
                     result["custom_metrics"]["custom_quantities_q_left_spd_mean"]
@@ -199,17 +204,17 @@ if __name__ == "__main__":
             )
 
             # Save model every 10 epochs
-            if i % checkpoint_frequency == 0:
+            if epoch % checkpoint_frequency == 0:
                 checkpoint_path = trainer.save()
                 print("Checkpoint saved at", checkpoint_path)
 
             # Run a test every 20 epochs
-            if i % simulation_frequency == 0:
+            if epoch % simulation_frequency == 0:
                 # Make a steps counter
                 steps = 0
 
                 # Run test
-                video_path = os.path.join(test_dir, "sim_{}.mp4".format(i))
+                video_path = os.path.join(test_dir+"/config_{}".format(i), "run_{}.mp4".format(epoch))
                 filterfn = trainer.workers.local_worker().filters["default_policy"]
                 env.reset()
                 obs = env.reset()[0]
@@ -231,4 +236,4 @@ if __name__ == "__main__":
 
                 # Increment test index
                 max_test_i += 1
-            apply_f_to_nested_dict(lambda x: x*(1.0+ torch.rand(1)), training_config["environment"]["env_config"])
+        apply_f_to_nested_dict(lambda x: x*(1.0+ np.random.rand()), training_config["environment"]["env_config"])
