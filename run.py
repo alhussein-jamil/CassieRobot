@@ -17,12 +17,25 @@ from ray.rllib.examples.models.custom_loss_model import (
 )
 import datetime
 import tempfile
-
+import wandb
 import torch
 
 torch.cuda.empty_cache()
 
 log.basicConfig(level=log.DEBUG)
+
+def apply_f_to_nested_dict(f, nested_dict):
+    """
+    Applies f to all values in a nested dict
+    """
+    for k, v in nested_dict.items():
+        if isinstance(v, dict):
+            apply_f_to_nested_dict(f, v)
+        elif isinstance(v, list):
+            for i in range(len(v)):
+                v[i] = f(v[i])
+        else:
+            nested_dict[k] = f(v)
 
 def custom_log_creator(custom_path, custom_str):
     timestr = datetime.date.today().strftime("%Y-%m-%d_%H-%M-%S")
@@ -40,6 +53,7 @@ def custom_log_creator(custom_path, custom_str):
 ModelCatalog.register_custom_model("caps_model", CapsModel)
 
 if __name__ == "__main__":
+
     argparser = argparse.ArgumentParser()
     argparser.add_argument(
         "-cleanrun",
@@ -71,9 +85,13 @@ if __name__ == "__main__":
 
     args = argparser.parse_args()
 
+    if args.logdir is not None:
+        log_dir = args.logdir
+    else:
+        log_dir = Path.home() / "ray_results"
     if args.config is not None:
         config = args.config
-  
+    
     else:
         config = "default_config.yaml"
     log.info("Config file: {}".format(config))
@@ -84,8 +102,8 @@ if __name__ == "__main__":
     if clean_run:
         log.info("Running clean run")
     else:
-        runs = Path.glob(Path.home() / "ray_results", "PPO_cassie-v0*")
-
+        runs = Path.glob(log_dir, "PPO_cassie-v0*")
+        load = False
         for run in list(runs)[::-1]:
             print("Loading run", run)
             checkpoints = Path.glob(run, "checkpoint_*")
@@ -104,10 +122,6 @@ if __name__ == "__main__":
         sim_dir = "./sims/"
     log.info("Simulation directory: {}".format(sim_dir))
 
-    if args.logdir is not None:
-        log_dir = args.logdir
-    else:
-        log_dir = "default_logdir"
     log.info("Log directory: {}".format(log_dir))
     log.info(os.path.exists(log_dir))
 
@@ -116,104 +130,105 @@ if __name__ == "__main__":
     loader = Loader(logdir=log_dir, simdir=sim_dir)
 
     config = loader.load_config(config)
-    
+    wandb.init(project="Cassie",  config=config["training"]["environment"]["env_config"])
     Trainer = PPOConfig
+    
+    for i in range(config["run"]["hyper_par_iter"]):
+        print("Hyperparameter iteration: {}".format(i))
+        training_config = config["training"]
+        print("env_config", training_config.get("environment", {})["env_config"])
 
-    training_config = config["training"]
-
-    print("env_config", training_config.get("environment", {})["env_config"])
-
-    trainer = (
-        Trainer()
-        .environment(**training_config.get("environment", {}))
-        .rollouts(**training_config.get("rollouts", {}))
-        .checkpointing(**training_config.get("checkpointing", {}))
-        .debugging(logger_creator= custom_log_creator(args.logdir , "cassie_PPO") if args.logdir is not None else None)
-        .training(**training_config.get("training", {}))
-        .framework(**training_config.get("framework", {}))
-        .resources(**training_config.get("resources", {}))
-        .evaluation(**training_config.get("evaluation", {}))
-        .callbacks(callbacks_class=MyCallbacks)
-    )
-
-    trainer = trainer.build()
-
-    # Build trainer
-    if not clean_run:
-        if(load):
-            trainer.restore(checkpoint)
-
-    # Define video codec and framerate
-    fps = config["run"]["sim_fps"]
-
-    # Training loop
-    max_test_i = 0
-    checkpoint_frequency = config["run"]["chkpt_freq"]
-    simulation_frequency = config["run"]["sim_freq"]
-    env = CassieEnv({})
-    env.render_mode = "rgb_array"
-
-    # Create sim directory if it doesn't exist
-    if not os.path.exists(sim_dir):
-        os.makedirs(sim_dir)
-
-    # Find the latest directory named test_i in the sim directory
-    latest_directory = max(
-        [int(d.split("_")[-1]) for d in os.listdir(sim_dir) if d.startswith("test_")],
-        default=0
-    )
-    max_test_i = latest_directory + 1
-
-    # Create folder for test
-    test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
-    os.makedirs(test_dir, exist_ok=True)
-
-    # Set initial iteration count
-    i = trainer.iteration if hasattr(trainer, "iteration") else 0
-
-    while True:
-        # Train for one iteration
-        result = trainer.train()
-        i += 1
-        print(
-            "Episode {} Reward Mean {} Q_lef_frc {} Q_left_spd {}".format(
-                i,
-                result["episode_reward_mean"],
-                result["custom_metrics"]["custom_quantities_q_left_frc_mean"],
-                result["custom_metrics"]["custom_quantities_q_left_spd_mean"]
-            )
+        trainer = (
+            Trainer()
+            .environment(**training_config.get("environment", {}))
+            .rollouts(**training_config.get("rollouts", {}))
+            .checkpointing(**training_config.get("checkpointing", {}))
+            .debugging(logger_creator= custom_log_creator(args.logdir , "cassie_PPO") if args.logdir is not None else None)
+            .training(**training_config.get("training", {}))
+            .framework(**training_config.get("framework", {}))
+            .resources(**training_config.get("resources", {}))
+            .evaluation(**training_config.get("evaluation", {}))
+            .callbacks(callbacks_class=MyCallbacks)
         )
 
-        # Save model every 10 epochs
-        if i % checkpoint_frequency == 0:
-            checkpoint_path = trainer.save()
-            print("Checkpoint saved at", checkpoint_path)
+        trainer = trainer.build()
 
-        # Run a test every 20 epochs
-        if i % simulation_frequency == 0:
-            # Make a steps counter
-            steps = 0
+        # Build trainer
+        if not clean_run:
+            if(load):
+                trainer.restore(checkpoint)
 
-            # Run test
-            video_path = os.path.join(test_dir, "sim_{}.mp4".format(i))
-            filterfn = trainer.workers.local_worker().filters["default_policy"]
-            env.reset()
-            obs = env.reset()[0]
-            done = False
-            frames = []
+        # Define video codec and framerate
+        fps = config["run"]["sim_fps"]
 
-            while not done:
-                # Increment steps
-                steps += 1
-                obs = filterfn(obs)
-                action = trainer.compute_single_action(obs)
-                obs, _, done, _, _ = env.step(action)
-                frame = env.render()
-                frames.append(frame)
+        # Training loop
+        max_test_i = 0
+        checkpoint_frequency = config["run"]["chkpt_freq"]
+        simulation_frequency = config["run"]["sim_freq"]
+        print("Creating test environment")
+        env = CassieEnv({})
+        env.render_mode = "rgb_array"
 
-            # Save video
-            media.write_video(video_path, frames, fps=fps)
-            print("Test saved at", video_path)
+        # Create sim directory if it doesn't exist
+        if not os.path.exists(sim_dir):
+            os.makedirs(sim_dir)
 
-            # Increment test index
-            max_test_i += 1
+        # Find the latest directory named test_i in the sim directory
+        latest_directory = max(
+            [int(d.split("_")[-1]) for d in os.listdir(sim_dir) if d.startswith("test_")],
+            default=0
+        )
+        max_test_i = latest_directory + 1
+
+        # Create folder for test
+        test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
+        os.makedirs(test_dir, exist_ok=True)
+
+
+
+        for epoch in range(trainer.iteration if hasattr(trainer, "iteration") else 0,config["run"].get("epochs", 1000)):
+            # Train for one iteration
+            result = trainer.train()
+            print(
+                "Episode {} Reward Mean {} Q_lef_frc {} Q_left_spd {}".format(
+                    i,
+                    result["episode_reward_mean"],
+                    result["custom_metrics"]["custom_quantities_q_left_frc_mean"],
+                    result["custom_metrics"]["custom_quantities_q_left_spd_mean"]
+                )
+            )
+
+            # Save model every 10 epochs
+            if i % checkpoint_frequency == 0:
+                checkpoint_path = trainer.save()
+                print("Checkpoint saved at", checkpoint_path)
+
+            # Run a test every 20 epochs
+            if i % simulation_frequency == 0:
+                # Make a steps counter
+                steps = 0
+
+                # Run test
+                video_path = os.path.join(test_dir, "sim_{}.mp4".format(i))
+                filterfn = trainer.workers.local_worker().filters["default_policy"]
+                env.reset()
+                obs = env.reset()[0]
+                done = False
+                frames = []
+
+                while not done:
+                    # Increment steps
+                    steps += 1
+                    obs = filterfn(obs)
+                    action = trainer.compute_single_action(obs)
+                    obs, _, done, _, _ = env.step(action)
+                    frame = env.render()
+                    frames.append(frame)
+
+                # Save video
+                media.write_video(video_path, frames, fps=fps)
+                print("Test saved at", video_path)
+
+                # Increment test index
+                max_test_i += 1
+            apply_f_to_nested_dict(lambda x: x*(1.0+ torch.rand(1)), training_config["environment"]["env_config"])
