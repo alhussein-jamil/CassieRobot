@@ -22,6 +22,37 @@ import functions as f
 
 log.basicConfig(level=log.DEBUG)
 
+DEFAULT_CONFIG = {
+    "steps_per_cycle": 30,
+    "a_swing": 0,
+    "b_swing": 0.5,
+    "a_stance": 0.5,
+    "b_stance": 1,
+    "kappa": 25,
+    "x_cmd_vel": 1.5,
+    "y_cmd_vel": 0,
+    "z_cmd_vel": 0,
+    "terminate_when_unhealthy": True,
+    "max_simulation_steps": 400,
+    "pelvis_height": [0.6, 1.5],
+    "feet_distance_x": [0.0, 1.0],
+    "feet_distance_y": [0.0, 0.5],
+    "feet_distance_z": [0.0, 0.5],
+    "feet_pelvis_height": 0.3,
+    "feet_height": 0.6,
+    "model": "cassie",
+    "render_mode": "rgb_array",
+    "reset_noise_scale" : 0.01,
+    "reward_coeffs": {
+        "bias": 1.0,
+        "r_biped": 4.0,
+        "r_cmd" : 3.0,
+        "r_smooth": 1.0,
+        "r_alternate": 4.0
+
+    }
+}
+
 
 class CassieEnv(MujocoEnv):
     metadata = {
@@ -35,29 +66,29 @@ class CassieEnv(MujocoEnv):
 
     def __init__(self, env_config):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
-        self._terminate_when_unhealthy = env_config.get("terminate_when_unhealthy", True)
-        self._healthy_pelvis_z_range = env_config.get("pelvis_height", (0.60, 1.5))
-        self._healthy_feet_distance_x = env_config.get("feet_distance_x", (0.0, 1.0))
-        self._healthy_feet_distance_y = env_config.get("feet_distance_y", (0.0, 0.6))
-        self._healthy_feet_distance_z = env_config.get("feet_distance_z", (0.0, 0.5))
-        self._healthy_dis_to_pelvis = env_config.get("feet_pelvis_height", 0.3)
-        self._healthy_feet_height = env_config.get("feet_height", (0.0, 0.4))
-        self._max_steps = env_config.get("max_simulation_steps", 400)
-        self.steps_per_cycle = env_config.get("steps_per_cycle", 30)
-        self.a_swing = env_config.get("a_swing", 0)
-        self.a_stance = env_config.get("a_stance", 0.5)
-        self.b_swing = env_config.get("b_swing", 0.5)
-        self.b_stance = env_config.get("b_stance", 1)
-        self.kappa = env_config.get("kappa", 25)
-        self.x_cmd_vel = env_config.get("x_cmd_vel", 0.8)
-        self.y_cmd_vel = env_config.get("y_cmd_vel", 0)
-        self.z_cmd_vel = env_config.get("z_cmd_vel", 0)
+        self._terminate_when_unhealthy = env_config.get("terminate_when_unhealthy", DEFAULT_CONFIG["terminate_when_unhealthy"])
+        self._healthy_pelvis_z_range = env_config.get("pelvis_height", DEFAULT_CONFIG["pelvis_height"])
+        self._healthy_feet_distance_x = env_config.get("feet_distance_x", DEFAULT_CONFIG["feet_distance_x"])
+        self._healthy_feet_distance_y = env_config.get("feet_distance_y", DEFAULT_CONFIG["feet_distance_y"])
+        self._healthy_feet_distance_z = env_config.get("feet_distance_z", DEFAULT_CONFIG["feet_distance_z"])
+        self._healthy_dis_to_pelvis = env_config.get("feet_pelvis_height", DEFAULT_CONFIG["feet_pelvis_height"])
+        self._healthy_feet_height = env_config.get("feet_height", DEFAULT_CONFIG["feet_height"])
+        self._max_steps = env_config.get("max_simulation_steps", DEFAULT_CONFIG["max_simulation_steps"])
+        self.steps_per_cycle = env_config.get("steps_per_cycle", DEFAULT_CONFIG["steps_per_cycle"])
+        self.a_swing = env_config.get("a_swing", DEFAULT_CONFIG["a_swing"])
+        self.a_stance = env_config.get("a_stance", DEFAULT_CONFIG["a_stance"])
+        self.b_swing = env_config.get("b_swing", DEFAULT_CONFIG["b_swing"])
+        self.b_stance = env_config.get("b_stance", DEFAULT_CONFIG["b_stance"])
+        self.kappa = env_config.get("kappa", DEFAULT_CONFIG["kappa"])
+        self.x_cmd_vel = env_config.get("x_cmd_vel", DEFAULT_CONFIG["x_cmd_vel"])
+        self.y_cmd_vel = env_config.get("y_cmd_vel", DEFAULT_CONFIG["y_cmd_vel"])
+        self.z_cmd_vel = env_config.get("z_cmd_vel", DEFAULT_CONFIG["z_cmd_vel"])
         self.model_file = env_config.get("model", "cassie")
         self.action_space = gym.spaces.Box(
             np.float32(c.low_action), np.float32(c.high_action)
         )
-
-        self._reset_noise_scale = env_config.get("reset_noise_scale", 1e-2)
+        self.reward_coeffs = env_config.get("reward_coeffs", DEFAULT_CONFIG["reward_coeffs"])
+        self._reset_noise_scale = env_config.get("reset_noise_scale", DEFAULT_CONFIG["reset_noise_scale"])
 
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
         self.previous_action = torch.zeros(10)
@@ -432,9 +463,6 @@ class CassieEnv(MujocoEnv):
 
         r_biped /= 2.0
 
-        reward = (4.0 * r_biped + 3.0 * r_cmd + 3.0 * r_alternate + 1.0 * r_smooth) / (
-            4.0 + 3.0 + 3.0 + 1.0
-        ) + 1.0  # ADD SOME EXTRA REWARD TO ENCOURAGE THE AGENT TO STAY ALIVE
 
         rewards = {
             "r_biped": r_biped,
@@ -442,7 +470,8 @@ class CassieEnv(MujocoEnv):
             "r_smooth": r_smooth,
             "r_alternate": r_alternate,
         }
-
+        reward = self.reward_coeffs["bias"] + sum([rewards[k]*self.reward_coeffs[k] for k in rewards.keys()])/sum(self.reward_coeffs.values())
+    
         self.C = {
             "sin": self.obs[-2],
             "cos": self.obs[-1],
