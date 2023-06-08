@@ -1,0 +1,65 @@
+Hyperparameter iteration: 0
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 08:19:02,033	INFO algorithm.py:527 -- Current log_level is WARN. For more information, set 'log_level': 'INFO' / 'DEBUG' or use the -v and -vv flags.
+Creating test environment
+[36m(RolloutWorker pid=194224)[39m 2023-06-08 08:19:06,523	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:19:06,922	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Episode 0 Reward Mean 21.815760872774383 Q_lef_frc 0.03748767471378982 Q_left_spd 0.9529914872451579
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-19-02c0qxpafj/checkpoint_000001
+Test saved at ./sims/test_23/config_0/run_0.mp4
+Episode 0 Reward Mean 21.885239260089108 Q_lef_frc 0.03952942987616141 Q_left_spd 0.950754607926612
+Episode 0 Reward Mean 21.918516584721363 Q_lef_frc 0.039589675673045804 Q_left_spd 0.9525749887767616
+Episode 0 Reward Mean 22.034143337189363 Q_lef_frc 0.040147470620712215 Q_left_spd 0.9516732613901453
+Episode 0 Reward Mean 22.257397256787133 Q_lef_frc 0.038902654739600605 Q_left_spd 0.9445273734870077
+Traceback (most recent call last):
+  File "run.py", line 195, in <module>
+    result = trainer.train()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 381, in train
+    result = self.step()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 792, in step
+    results, train_iter_ctx = self._run_one_training_iteration()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 2811, in _run_one_training_iteration
+    results = self.training_step()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/algorithms/ppo/ppo.py", line 403, in training_step
+    train_batch = synchronous_parallel_sample(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/execution/rollout_ops.py", line 85, in synchronous_parallel_sample
+    sample_batches = worker_set.foreach_worker(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 713, in foreach_worker
+    remote_results = self.__worker_manager.foreach_actor(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 599, in foreach_actor
+    _, remote_results = self.__fetch_result(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 467, in __fetch_result
+    ready, _ = ray.wait(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/_private/worker.py", line 2719, in wait
+    ready_ids, remaining_ids = worker.core_worker.wait(
+  File "python/ray/_raylet.pyx", line 1870, in ray._raylet.CoreWorker.wait
+  File "python/ray/_raylet.pyx", line 201, in ray._raylet.check_status
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "run.py", line 195, in <module>
+    result = trainer.train()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 381, in train
+    result = self.step()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 792, in step
+    results, train_iter_ctx = self._run_one_training_iteration()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 2811, in _run_one_training_iteration
+    results = self.training_step()
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/algorithms/ppo/ppo.py", line 403, in training_step
+    train_batch = synchronous_parallel_sample(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/execution/rollout_ops.py", line 85, in synchronous_parallel_sample
+    sample_batches = worker_set.foreach_worker(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 713, in foreach_worker
+    remote_results = self.__worker_manager.foreach_actor(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 599, in foreach_actor
+    _, remote_results = self.__fetch_result(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 467, in __fetch_result
+    ready, _ = ray.wait(
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/ajvendetta/.pyenv/versions/3.8.16/lib/python3.8/site-packages/ray/_private/worker.py", line 2719, in wait
+    ready_ids, remaining_ids = worker.core_worker.wait(
+  File "python/ray/_raylet.pyx", line 1870, in ray._raylet.CoreWorker.wait
+  File "python/ray/_raylet.pyx", line 201, in ray._raylet.check_status
+KeyboardInterrupt

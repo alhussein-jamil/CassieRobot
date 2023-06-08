@@ -1,0 +1,28 @@
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_setup.py:_flush():76] Current SDK version is 0.15.3
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_setup.py:_flush():76] Configure stats pid to 160990
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_setup.py:_flush():76] Loading settings from /home/ajvendetta/.config/wandb/settings
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_setup.py:_flush():76] Loading settings from /home/ajvendetta/CassieRobot/wandb/settings
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'run.py', 'program': 'run.py'}
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_init.py:_log_setup():507] Logging user logs to /home/ajvendetta/CassieRobot/wandb/run-20230608_081319-tni9wdl6/logs/debug.log
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_init.py:_log_setup():508] Logging internal logs to /home/ajvendetta/CassieRobot/wandb/run-20230608_081319-tni9wdl6/logs/debug-internal.log
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_init.py:init():547] calling init triggers
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_init.py:init():554] wandb.init called with sweep_config: {}
+config: {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_init.py:init():596] starting backend
+2023-06-08 08:13:19,965 INFO    MainThread:160990 [wandb_init.py:init():600] setting up manager
+2023-06-08 08:13:19,966 INFO    MainThread:160990 [backend.py:_multiprocessing_setup():106] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2023-06-08 08:13:19,975 INFO    MainThread:160990 [wandb_init.py:init():606] backend started and connected
+2023-06-08 08:13:19,978 INFO    MainThread:160990 [wandb_init.py:init():700] updated telemetry
+2023-06-08 08:13:20,001 INFO    MainThread:160990 [wandb_init.py:init():737] communicating run to backend with 60.0 second timeout
+2023-06-08 08:13:20,362 INFO    MainThread:160990 [wandb_run.py:_on_init():2177] communicating current version
+2023-06-08 08:13:20,427 INFO    MainThread:160990 [wandb_run.py:_on_init():2186] got version response upgrade_message: "wandb version 0.15.4 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2023-06-08 08:13:20,428 INFO    MainThread:160990 [wandb_init.py:init():787] starting run threads in backend
+2023-06-08 08:13:20,468 INFO    MainThread:160990 [wandb_run.py:_console_start():2158] atexit reg
+2023-06-08 08:13:20,468 INFO    MainThread:160990 [wandb_run.py:_redirect():2013] redirect: SettingsConsole.WRAP_RAW
+2023-06-08 08:13:20,469 INFO    MainThread:160990 [wandb_run.py:_redirect():2078] Wrapping output streams.
+2023-06-08 08:13:20,469 INFO    MainThread:160990 [wandb_run.py:_redirect():2103] Redirects installed.
+2023-06-08 08:13:20,469 INFO    MainThread:160990 [wandb_init.py:init():829] run started, returning control to user process
+2023-06-08 08:13:37,425 WARNING MsgRouterThr:160990 [router.py:message_loop():77] message_loop has been closed

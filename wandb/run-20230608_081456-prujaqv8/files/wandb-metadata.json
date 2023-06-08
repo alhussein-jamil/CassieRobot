@@ -1,0 +1,147 @@
+{
+    "os": "Linux-6.2.0-20-generic-x86_64-with-glibc2.34",
+    "python": "3.8.16",
+    "heartbeatAt": "2023-06-08T06:14:56.486134",
+    "startedAt": "2023-06-08T06:14:56.042207",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "-cleanrun"
+    ],
+    "state": "running",
+    "program": "run.py",
+    "codePath": "run.py",
+    "git": {
+        "remote": "git@github.com:alhussein-jamil/CassieRobot.git",
+        "commit": "b3ceed663b26b12dccb4e34e424f47d97a260744"
+    },
+    "email": "alhussein.jamil@polytechnique.edu",
+    "root": "/home/ajvendetta/CassieRobot",
+    "host": "ajvendetta-AERO-16-XE5",
+    "username": "ajvendetta",
+    "executable": "/home/ajvendetta/.pyenv/versions/3.8.16/bin/python",
+    "cpu_count": 14,
+    "cpu_count_logical": 20,
+    "cpu_freq": {
+        "current": 2586.10085,
+        "min": 400.0,
+        "max": 4180.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1853.748,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 2700.0,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 3609.762,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 997.896,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 538.231,
+            "min": 400.0,
+            "max": 4700.0
+        },
+        {
+            "current": 3831.526,
+            "min": 400.0,
+            "max": 4700.0
+        },
+        {
+            "current": 4041.799,
+            "min": 400.0,
+            "max": 4700.0
+        },
+        {
+            "current": 2700.0,
+            "min": 400.0,
+            "max": 4700.0
+        },
+        {
+            "current": 3203.236,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 1302.547,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 4161.42,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 4462.895,
+            "min": 400.0,
+            "max": 4600.0
+        },
+        {
+            "current": 663.603,
+            "min": 400.0,
+            "max": 3500.0
+        },
+        {
+            "current": 2956.553,
+            "min": 400.0,
+            "max": 3500.0
+        },
+        {
+            "current": 2700.0,
+            "min": 400.0,
+            "max": 3500.0
+        },
+        {
+            "current": 2700.0,
+            "min": 400.0,
+            "max": 3500.0
+        },
+        {
+            "current": 2700.0,
+            "min": 400.0,
+            "max": 3500.0
+        },
+        {
+            "current": 1484.699,
+            "min": 400.0,
+            "max": 3500.0
+        },
+        {
+            "current": 1854.108,
+            "min": 400.0,
+            "max": 3500.0
+        },
+        {
+            "current": 2700.0,
+            "min": 400.0,
+            "max": 3500.0
+        }
+    ],
+    "disk": {
+        "total": 936.7875633239746,
+        "used": 307.0261878967285
+    },
+    "gpu": "NVIDIA GeForce RTX 3070 Ti Laptop GPU",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 3070 Ti Laptop GPU",
+            "memory_total": 8589934592
+        }
+    ],
+    "memory": {
+        "total": 15.27042007446289
+    }
+}

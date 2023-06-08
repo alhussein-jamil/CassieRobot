@@ -1,0 +1,60 @@
+Hyperparameter iteration: 0
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 08:14:56,516	INFO algorithm.py:527 -- Current log_level is WARN. For more information, set 'log_level': 'INFO' / 'DEBUG' or use the -v and -vv flags.
+Creating test environment
+[36m(RolloutWorker pid=168541)[39m 2023-06-08 08:15:00,128	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:15:00,385	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Episode 0 Reward Mean 21.91782561459843 Q_lef_frc 0.038587877080870386 Q_left_spd 0.9566842437119556
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000001
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 21.832840890548965 Q_lef_frc 0.037877635636357265 Q_left_spd 0.9562542798369926
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000002
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 21.911331088611526 Q_lef_frc 0.04122900626222021 Q_left_spd 0.9566815432044625
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000003
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 22.087619752488685 Q_lef_frc 0.04119957718361818 Q_left_spd 0.9566993631145999
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000004
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 22.34580715244239 Q_lef_frc 0.04335897551434083 Q_left_spd 0.95538445311817
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000005
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 22.425639762545504 Q_lef_frc 0.045224484923270705 Q_left_spd 0.9503563625608893
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000006
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 22.830068799802376 Q_lef_frc 0.04797881388655155 Q_left_spd 0.9512214272683751
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000007
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 22.989331013591087 Q_lef_frc 0.046140071133015395 Q_left_spd 0.9485121994717327
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000008
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 22.99257897764772 Q_lef_frc 0.046823678505715075 Q_left_spd 0.9504318021273658
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000009
+Test saved at ./sims/test_20/sim_0.mp4
+Episode 0 Reward Mean 23.141045059099344 Q_lef_frc 0.04931524876109844 Q_left_spd 0.9466181800813612
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-14-56ya4zord1/checkpoint_000010
+Test saved at ./sims/test_20/sim_0.mp4
+Traceback (most recent call last):
+  File "run.py", line 238, in <module>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ torch.rand()), training_config["environment"]["env_config"])
+  File "run.py", line 39, in apply_f_to_nested_dict
+    nested_dict[k] = f(v)
+  File "run.py", line 238, in <lambda>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ torch.rand()), training_config["environment"]["env_config"])
+TypeError: rand() received an invalid combination of arguments - got (), but expected one of:
+ * (tuple of ints size, *, torch.Generator generator, tuple of names names, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)
+ * (tuple of ints size, *, torch.Generator generator, Tensor out, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)
+ * (tuple of ints size, *, Tensor out, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)
+ * (tuple of ints size, *, tuple of names names, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)
+Traceback (most recent call last):
+  File "run.py", line 238, in <module>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ torch.rand()), training_config["environment"]["env_config"])
+  File "run.py", line 39, in apply_f_to_nested_dict
+    nested_dict[k] = f(v)
+  File "run.py", line 238, in <lambda>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ torch.rand()), training_config["environment"]["env_config"])
+TypeError: rand() received an invalid combination of arguments - got (), but expected one of:
+ * (tuple of ints size, *, torch.Generator generator, tuple of names names, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)
+ * (tuple of ints size, *, torch.Generator generator, Tensor out, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)
+ * (tuple of ints size, *, Tensor out, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)
+ * (tuple of ints size, *, tuple of names names, torch.dtype dtype, torch.layout layout, torch.device device, bool pin_memory, bool requires_grad)

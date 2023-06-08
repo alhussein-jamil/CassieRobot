@@ -1,0 +1,34 @@
+Hyperparameter iteration: 0
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 08:19:50,473	INFO algorithm.py:527 -- Current log_level is WARN. For more information, set 'log_level': 'INFO' / 'DEBUG' or use the -v and -vv flags.
+Creating test environment
+[36m(RolloutWorker pid=201540)[39m 2023-06-08 08:19:55,038	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:19:55,334	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Episode 0 Reward Mean 21.713090364342364 Q_lef_frc 0.039211322996430646 Q_left_spd 0.9546099781432409
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-19-50x3xq7b1u/checkpoint_000001
+Test saved at ./sims/test_24/config_0/run_0.mp4
+Episode 1 Reward Mean 21.90381138090614 Q_lef_frc 0.03650498404773745 Q_left_spd 0.9556336909611669
+Episode 2 Reward Mean 21.69265750271303 Q_lef_frc 0.04042408114222593 Q_left_spd 0.9520176546874817
+Episode 3 Reward Mean 22.063072272756646 Q_lef_frc 0.04028415886626449 Q_left_spd 0.9503802250515898
+Episode 4 Reward Mean 22.199080275100382 Q_lef_frc 0.04103556774660249 Q_left_spd 0.9514402028972947
+Episode 5 Reward Mean 22.26872768754909 Q_lef_frc 0.04296221705492291 Q_left_spd 0.9464141005483142
+Episode 6 Reward Mean 22.4984979501688 Q_lef_frc 0.042067738294095526 Q_left_spd 0.9510896874203929
+Episode 7 Reward Mean 22.726324336732137 Q_lef_frc 0.04507146028063782 Q_left_spd 0.9520844809462329
+Episode 8 Reward Mean 22.913739754683437 Q_lef_frc 0.04534218216599039 Q_left_spd 0.9389019556634262
+Traceback (most recent call last):
+  File "run.py", line 239, in <module>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ np.random.rand()), training_config["environment"]["env_config"])
+  File "run.py", line 40, in apply_f_to_nested_dict
+    nested_dict[k] = f(v)
+  File "run.py", line 239, in <lambda>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ np.random.rand()), training_config["environment"]["env_config"])
+TypeError: can't multiply sequence by non-int of type 'float'
+Traceback (most recent call last):
+  File "run.py", line 239, in <module>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ np.random.rand()), training_config["environment"]["env_config"])
+  File "run.py", line 40, in apply_f_to_nested_dict
+    nested_dict[k] = f(v)
+  File "run.py", line 239, in <lambda>
+    apply_f_to_nested_dict(lambda x: x*(1.0+ np.random.rand()), training_config["environment"]["env_config"])
+TypeError: can't multiply sequence by non-int of type 'float'
+Episode 9 Reward Mean 23.030657510653967 Q_lef_frc 0.04602891982647383 Q_left_spd 0.9434133468593263

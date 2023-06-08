@@ -1,0 +1,81 @@
+Hyperparameter iteration: 0
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 08:22:30,020	INFO algorithm.py:527 -- Current log_level is WARN. For more information, set 'log_level': 'INFO' / 'DEBUG' or use the -v and -vv flags.
+Creating test environment
+[36m(RolloutWorker pid=216843)[39m 2023-06-08 08:22:33,899	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:22:34,068	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Episode 0 Reward Mean 21.883220275365392 Q_lef_frc 0.03815110642774308 Q_left_spd 0.9556031726013607
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-22-30pezsma8_/checkpoint_000001
+Test saved at ./sims/test_26/config_0/run_0.mp4
+Hyperparameter iteration: 1
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.738801228562453, 'a_stance': 0.5013589979738746, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.8928194033708161, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6490851952852019, 2.100425254209533], 'feet_distance_x': [0.0, 1.3999335826521515], 'feet_distance_y': [0.0, 0.8312370676321452], 'feet_distance_z': [0.0, 0.5264593797988903], 'feet_pelvis_height': 0.529208645212481, 'feet_height': 1.1014465280305945, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.017216710147723604, 'reward_coeffs': {'bias': 1.669266720410213, 'r_biped': 7.054448866698683, 'r_cmd': 4.061205359459283, 'r_smooth': 1.9503440330774837, 'r_alternate': 2.7456241975865083}}
+[36m(RolloutWorker pid=220622)[39m 2023-06-08 08:22:45,726	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:22:46,111	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Creating test environment
+Episode 0 Reward Mean 43.31259957995371 Q_lef_frc 0.041579156038672065 Q_left_spd 0.9507976664639517
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-22-40424nqaho/checkpoint_000001
+Test saved at ./sims/test_26/config_1/run_0.mp4
+Hyperparameter iteration: 2
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 1.081536551108187, 'a_stance': 0.7255833849275791, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 2.401736377662569, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [1.175593811583568, 2.6331790401798], 'feet_distance_x': [0.0, 2.4301023183115786], 'feet_distance_y': [0.0, 1.262775131542629], 'feet_distance_z': [0.0, 0.9992573755206445], 'feet_pelvis_height': 0.7303740782655866, 'feet_height': 1.216848944946624, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.02615120727930277, 'reward_coeffs': {'bias': 3.070072688688646, 'r_biped': 7.272052078431702, 'r_cmd': 4.36775614241778, 'r_smooth': 3.7931569630588786, 'r_alternate': 4.670957900612142}}
+Creating test environment
+[36m(RolloutWorker pid=224157)[39m 2023-06-08 08:22:57,935	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:22:58,030	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Episode 0 Reward Mean 18.41026204822322 Q_lef_frc 0.0 Q_left_spd 0.9744623805374041
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-22-52izk7smzm/checkpoint_000001
+Test saved at ./sims/test_26/config_2/run_0.mp4
+Hyperparameter iteration: 3
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 1.9532409531729906, 'a_stance': 1.310194394824295, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 2.4130016615549486, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [1.2122520243467094, 5.236833438783743], 'feet_distance_x': [0.0, 3.3203894012099746], 'feet_distance_y': [0.0, 2.245193243340868], 'feet_distance_z': [0.0, 1.3585452378241087], 'feet_pelvis_height': 1.404224405596195, 'feet_height': 1.8006189973524591, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.03215580828572429, 'reward_coeffs': {'bias': 3.63762715437881, 'r_biped': 11.36418074000949, 'r_cmd': 4.497998268212306, 'r_smooth': 6.575595223171941, 'r_alternate': 8.601644427773383}}
+[36m(RolloutWorker pid=227797)[39m 2023-06-08 08:23:10,930	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:23:11,091	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Creating test environment
+Episode 0 Reward Mean 3.2982270199472246 Q_lef_frc 0.0 Q_left_spd 1.0
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-23-05lbubrx24/checkpoint_000001
+Test saved at ./sims/test_26/config_3/run_0.mp4
+Hyperparameter iteration: 4
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 3.676191035491703, 'a_stance': 1.5441860569834434, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 3.877142865544805, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [1.4438602944010428, 9.500080927712634], 'feet_distance_x': [0.0, 4.4075940466850465], 'feet_distance_y': [0.0, 4.430417358200058], 'feet_distance_z': [0.0, 1.601248648666489], 'feet_pelvis_height': 1.8561001712399297, 'feet_height': 2.344429476230202, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.05401344465020325, 'reward_coeffs': {'bias': 6.905773314832329, 'r_biped': 14.509584309749497, 'r_cmd': 7.741385829909457, 'r_smooth': 8.201551973997846, 'r_alternate': 16.499031362049166}}
+2023-06-08 08:23:27,739	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+[36m(RolloutWorker pid=231349)[39m 2023-06-08 08:23:27,701	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+Creating test environment
+Episode 0 Reward Mean 6.589503626808378 Q_lef_frc 0.0 Q_left_spd 1.0
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-23-224xjzv551/checkpoint_000001
+Test saved at ./sims/test_26/config_4/run_0.mp4
+Hyperparameter iteration: 5
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 3.820894603993423, 'a_stance': 1.9172433258661288, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 6.379917665902186, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [2.0264557408048214, 15.945364870818056], 'feet_distance_x': [0.0, 5.845220242569404], 'feet_distance_y': [0.0, 8.833711951729718], 'feet_distance_z': [0.0, 2.8949110724731875], 'feet_pelvis_height': 2.424742741742853, 'feet_height': 3.668718852442406, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.059506498888199845, 'reward_coeffs': {'bias': 12.518360070673795, 'r_biped': 19.24050468720938, 'r_cmd': 8.45108153911859, 'r_smooth': 10.903799387341335, 'r_alternate': 19.702988160521166}}
+[36m(RolloutWorker pid=235142)[39m 2023-06-08 08:23:44,631	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:23:44,775	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Creating test environment
+Episode 0 Reward Mean 12.218671234273655 Q_lef_frc 1.306458128969089e-05 Q_left_spd 1.0
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-23-39rtwnleia/checkpoint_000001
+Test saved at ./sims/test_26/config_5/run_0.mp4
+Hyperparameter iteration: 6
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 7.319977192083112, 'a_stance': 2.0476500247574654, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 10.101297046126568, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [2.2406514339396737, 16.368142619048456], 'feet_distance_x': [0.0, 10.873312366436767], 'feet_distance_y': [0.0, 9.516057426063174], 'feet_distance_z': [0.0, 5.064339239056184], 'feet_pelvis_height': 4.642838075772763, 'feet_height': 4.6229096860526155, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.06329648039347092, 'reward_coeffs': {'bias': 13.100537430470863, 'r_biped': 38.1003054661523, 'r_cmd': 9.851290165340318, 'r_smooth': 11.392330763591177, 'r_alternate': 29.385992034441347}}
+[36m(RolloutWorker pid=238736)[39m 2023-06-08 08:24:02,854	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:24:02,972	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Creating test environment
+Episode 0 Reward Mean 12.773530702492042 Q_lef_frc 2.034711132144158e-05 Q_left_spd 1.0
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-23-56o0kr9y03/checkpoint_000001
+Test saved at ./sims/test_26/config_6/run_0.mp4
+Hyperparameter iteration: 7
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 8.6218124466962, 'a_stance': 3.0622485177725083, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 16.175732950806818, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [4.4031871091838095, 31.12609163049149], 'feet_distance_x': [0.0, 19.077990793173026], 'feet_distance_y': [0.0, 17.045946957979005], 'feet_distance_z': [0.0, 8.066486003932674], 'feet_pelvis_height': 8.68206191003615, 'feet_height': 5.02577815363162, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.08817838864696974, 'reward_coeffs': {'bias': 18.022629886323706, 'r_biped': 43.08961950102732, 'r_cmd': 10.195201730840973, 'r_smooth': 13.8278223787589, 'r_alternate': 37.96364613248574}}
+[36m(RolloutWorker pid=242332)[39m 2023-06-08 08:24:18,289	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:24:18,556	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Creating test environment
+Episode 0 Reward Mean 17.71185171967114 Q_lef_frc 0.001739609878851186 Q_left_spd 1.0
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-24-13hle67y98/checkpoint_000001
+Test saved at ./sims/test_26/config_7/run_0.mp4
+Hyperparameter iteration: 8
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 12.342268614873811, 'a_stance': 5.7490843502442806, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 29.206848541724714, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [7.525272011684078, 57.42955418061863], 'feet_distance_x': [0.0, 34.55810720162468], 'feet_distance_y': [0.0, 27.019510154869582], 'feet_distance_z': [0.0, 14.769436519175928], 'feet_pelvis_height': 11.621512617003239, 'feet_height': 6.207686210225915, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.1516171998502195, 'reward_coeffs': {'bias': 19.529822133717317, 'r_biped': 50.667007616725904, 'r_cmd': 11.91308146170217, 'r_smooth': 22.87922923652618, 'r_alternate': 50.75990687805029}}
+[36m(RolloutWorker pid=245927)[39m 2023-06-08 08:24:35,016	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:24:35,181	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Creating test environment
+Episode 0 Reward Mean 19.216238692533086 Q_lef_frc 0.013221476300765906 Q_left_spd 1.0
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-24-29fnfiro6c/checkpoint_000001
+Test saved at ./sims/test_26/config_8/run_0.mp4
+Hyperparameter iteration: 9
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 19.321206041163514, 'a_stance': 6.348492884733667, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 29.991836951038593, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [7.857684872201218, 65.94816603290677], 'feet_distance_x': [0.0, 61.91904403725436], 'feet_distance_y': [0.0, 33.457761189404664], 'feet_distance_z': [0.0, 25.520432705172162], 'feet_pelvis_height': 17.29153774942725, 'feet_height': 6.711312557272491, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.1526037817246536, 'reward_coeffs': {'bias': 30.030115851542465, 'r_biped': 90.97842643875092, 'r_cmd': 20.155779160070335, 'r_smooth': 42.36631670689606, 'r_alternate': 55.0296514729309}}
+[36m(RolloutWorker pid=249561)[39m 2023-06-08 08:24:51,437	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 08:24:51,698	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+Creating test environment
+Episode 0 Reward Mean 29.689542468110385 Q_lef_frc 0.015223030968396393 Q_left_spd 1.0
+Checkpoint saved at /home/ajvendetta/ray_results/PPO_cassie-v0_2023-06-08_08-24-468sbv9vuh/checkpoint_000001
+Test saved at ./sims/test_26/config_9/run_0.mp4
