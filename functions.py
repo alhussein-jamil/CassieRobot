@@ -54,6 +54,8 @@ def flatten_dict(nested_dict, parent = ""):
     Flattens a nested dict
     """
     flat_dict = {}
+    if isinstance(nested_dict, list):
+        return nested_dict
     for k, v in nested_dict.items():
         if isinstance(v, dict):
             flat_dict.update(flatten_dict(v, parent + k + "_"))
@@ -68,14 +70,17 @@ def fill_dict_with_list(l, d, index = 0 ):
     """
     Fills a nested dict with a list
     """
+    print(l)
+    print(d)
     for k, v in d.items():
         if isinstance(v, dict):
             fill_dict_with_list(l, v, index)
         elif isinstance(v, list):
             for i in range(len(v)):
-                v[i] = l[index]
-                index += 1
-        else:
+                if(isinstance(v[i], float)):
+                    v[i] = l[index]
+                    index += 1
+        elif isinstance(v, float):
             d[k] = l[index]
             index += 1
     return d
