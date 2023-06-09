@@ -7,10 +7,10 @@ training:
     env_config: 
       # The constants are defined here
       steps_per_cycle: 25
-      a_swing: 0
+      a_swing: 0.0
       b_swing: 0.5
       a_stance: 0.5
-      b_stance: 1
+      b_stance: 1.0
       kappa: 25
       x_cmd_vel: 1.5
       y_cmd_vel: 0
@@ -26,12 +26,11 @@ training:
       model: cassie
       render_mode: rgb_array
       reset_noise_scale: 0.01
-      reward_coeffs:
-        bias: 1.0
-        r_biped: 4.0
-        r_cmd : 3.0
-        r_smooth: 1.0
-        r_alternate: 2.0
+      bias: 1.0
+      r_biped: 4.0
+      r_cmd : 3.0
+      r_smooth: 1.0
+      r_alternate: 2.0
 
     render_env: true
 

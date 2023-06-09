@@ -70,8 +70,6 @@ def fill_dict_with_list(l, d, index = 0 ):
     """
     Fills a nested dict with a list
     """
-    print(l)
-    print(d)
     for k, v in d.items():
         if isinstance(v, dict):
             fill_dict_with_list(l, v, index)
@@ -81,6 +79,7 @@ def fill_dict_with_list(l, d, index = 0 ):
                     v[i] = l[index]
                     index += 1
         elif isinstance(v, float):
+
             d[k] = l[index]
             index += 1
     return d

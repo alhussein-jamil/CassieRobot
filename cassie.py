@@ -43,14 +43,11 @@ DEFAULT_CONFIG = {
     "model": "cassie",
     "render_mode": "rgb_array",
     "reset_noise_scale" : 0.01,
-    "reward_coeffs": {
-        "bias": 1.0,
-        "r_biped": 4.0,
-        "r_cmd" : 3.0,
-        "r_smooth": 1.0,
-        "r_alternate": 4.0
-
-    }
+    "bias": 1.0,
+    "r_biped": 4.0,
+    "r_cmd" : 3.0,
+    "r_smooth": 1.0,
+    "r_alternate": 4.0
 }
 
 
@@ -87,7 +84,8 @@ class CassieEnv(MujocoEnv):
         self.action_space = gym.spaces.Box(
             np.float32(c.low_action), np.float32(c.high_action)
         )
-        self.reward_coeffs = env_config.get("reward_coeffs", DEFAULT_CONFIG["reward_coeffs"])
+        #dictionary of keys containing r_
+        self.reward_coeffs = {k:v for k,v in env_config.items() if k.startswith('r_')}
         self._reset_noise_scale = env_config.get("reset_noise_scale", DEFAULT_CONFIG["reset_noise_scale"])
 
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
