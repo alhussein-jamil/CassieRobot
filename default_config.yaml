@@ -89,10 +89,10 @@ training:
     framework: torch
     eager_tracing: false
 
-  resources:
-    num_gpus: 0
-    num_cpus_per_worker: 1
-    num_gpus_per_worker: 0
+  # resources:
+  #   num_gpus: 0
+  #   num_cpus_per_worker: 1
+  #   num_gpus_per_worker: 0
 
 
 run:

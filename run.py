@@ -103,8 +103,8 @@ if __name__ == "__main__":
     for key, value in config["training"]["environment"]["env_config"].items():
         if isinstance(value, list):
 
-            hyperparameter_ranges[key] = [
-            tune.uniform(
+            hyperparameter_ranges[key] = [tune.uniform(
+            
                 value[0] - (value[1] - value[0]) / 2,
                 value[0] + (value[1] - value[0]) / 2)
             ,
@@ -116,6 +116,8 @@ if __name__ == "__main__":
         elif isinstance(value, float):
             hyperparameter_ranges[key] = tune.uniform(value - 0.1 * value, value + 0.1 * value)
     print(hyperparameter_ranges)
+    print("flattened: ", f.flatten_dict(hyperparameter_ranges))
+    flattened = f.flatten_dict(hyperparameter_ranges)
     # wandb.init(project="Cassie", config=config["training"]["environment"]["env_config"])
     Trainer = PPOConfig
     # Create sim directory if it doesn't exist
@@ -138,12 +140,19 @@ if __name__ == "__main__":
 
     checkpoint_frequency = config["run"]["chkpt_freq"]
     simulation_frequency = config["run"]["sim_freq"]
-    def train_and_evaluate(config, max_test_i, i=0):
+    def train_and_evaluate(hyper_config, config, max_test_i, i=0):
+
+        import functions as f
+
+        training_config = config["training"]
+        print("hyper_config", list(hyper_config.values()))
+        print("training_config", training_config["environment"]["env_config"])
+        f.fill_dict_with_list(list(hyper_config.values()), training_config["environment"]["env_config"])
         trainer = (
             Trainer()
-            .environment(**config.get("environment", {}))
-            .rollouts(**config.get("rollouts", {}))
-            .checkpointing(**config.get("checkpointing", {}))
+            .environment(**training_config.get("environment", {}))
+            .rollouts(**training_config.get("rollouts", {}))
+            .checkpointing(**training_config.get("checkpointing", {}))
             .debugging(
                 logger_creator=custom_log_creator(
                     args.logdir, "cassie_PPO_config_{}_".format(i)
@@ -151,10 +160,10 @@ if __name__ == "__main__":
                 if args.logdir is not None
                 else None
             )
-            .training(**config.get("training", {}))
-            .framework(**config.get("framework", {}))
-            .resources(**config.get("resources", {}))
-            .evaluation(**config.get("evaluation", {}))
+            .training(**training_config.get("training", {}))
+            .framework(**training_config.get("framework", {}))
+            .resources(**training_config.get("resources", {}))
+            .evaluation(**training_config.get("evaluation", {}))
             .callbacks(callbacks_class=MyCallbacks)
         )
 
@@ -243,19 +252,19 @@ if __name__ == "__main__":
         metric="episode_reward_mean",
         mode="max",
         perturbation_interval=2,
-        hyperparam_mutations=hyperparameter_ranges
+        hyperparam_mutations=flattened,
     )
 
     analysis = tune.run(
-        lambda config : train_and_evaluate(config,max_test_i),
-        config=hyperparameter_ranges,
+        lambda hyper_config : train_and_evaluate(hyper_config, config ,max_test_i),
+        config=flattened,
         scheduler=pbt_scheduler,
         num_samples=config["run"]["hyper_par_iter"],
-        resources_per_trial={"cpu": 1, "gpu": 0},
+        # resources_per_trial=tune.PlacementGroupFactory([{"CPU":20}]+[{'CPU':1}]*20)
 
     )
 
     best_trial = analysis.get_best_trial("episode_reward_mean", mode="max")
     best_config = best_trial.config
-    f.fill_dict_with_list(best_config, config["training"]["environment"]["env_config"])
+
 
