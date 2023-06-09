@@ -1,0 +1,100 @@
+Hyperparameter iteration: 0
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 16:51:52,232	INFO algorithm.py:527 -- Current log_level is WARN. For more information, set 'log_level': 'INFO' / 'DEBUG' or use the -v and -vv flags.
+Creating test environment
+[36m(RolloutWorker pid=372261)[39m 2023-06-08 16:51:56,954	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 16:51:57,801	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+2023-06-08 16:51:57,890	WARNING checkpoints.py:109 -- No `rllib_checkpoint.json` file found in checkpoint directory /home/alhussein.jamil/ray_results/PPO_cassie-v0_2023-06-08_16-48-563isdme25/checkpoint_000001/.! Trying to extract checkpoint info from other files found in that dir.
+2023-06-08 16:51:57,959	INFO trainable.py:913 -- Restored on 192.168.56.81 from checkpoint: /home/alhussein.jamil/ray_results/PPO_cassie-v0_2023-06-08_16-48-563isdme25/checkpoint_000001
+2023-06-08 16:51:57,959	INFO trainable.py:922 -- Current state after restoring: {'_iteration': 1, '_timesteps_total': None, '_time_total': 11.611334323883057, '_episodes_total': 10000}
+Episode 1 Reward Mean 20.78460496963078 Q_lef_frc 0.01009815825181165 Q_left_spd 0.8518166679736895
+Hyperparameter iteration: 1
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5063050079940861, 'a_stance': 0.6409602345141279, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 2.6745487309259746, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.7506379584678778, 2.5407991477786163], 'feet_distance_x': [0.0, 1.8672352201374274], 'feet_distance_y': [0.0, 0.5577714585214568], 'feet_distance_z': [0.0, 0.5378745492370071], 'feet_pelvis_height': 0.4583988675049645, 'feet_height': 0.9044264198349038, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01284638041551626, 'reward_coeffs': {'bias': 1.185055394873363, 'r_biped': 4.089896001802283, 'r_cmd': 4.191673583499509, 'r_smooth': 1.0382254233855153, 'r_alternate': 3.9331597064328596}}
+[36m(RolloutWorker pid=374322)[39m 2023-06-08 16:52:10,248	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+Creating test environment
+2023-06-08 16:52:11,085	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+2023-06-08 16:52:11,252	INFO trainable.py:913 -- Restored on 192.168.56.81 from checkpoint: /home/alhussein.jamil/ray_results/PPO_cassie-v0_2023-06-08_16-48-563isdme25/checkpoint_000001
+2023-06-08 16:52:11,253	INFO trainable.py:922 -- Current state after restoring: {'_iteration': 1, '_timesteps_total': None, '_time_total': 11.611334323883057, '_episodes_total': 10000}
+Episode 1 Reward Mean 24.76826375386439 Q_lef_frc 0.01225168889637952 Q_left_spd 0.8595859387204774
+Hyperparameter iteration: 2
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.6109866423887791, 'a_stance': 1.2169334553788118, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 4.638851477135454, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [1.2605052173163203, 3.0334290454976576], 'feet_distance_x': [0.0, 3.5060950553351495], 'feet_distance_y': [0.0, 0.6835418149194493], 'feet_distance_z': [0.0, 0.6345234401214579], 'feet_pelvis_height': 0.47670273211186753, 'feet_height': 1.0776345857754268, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.017972546411931394, 'reward_coeffs': {'bias': 2.02402271227125, 'r_biped': 7.8480546877027235, 'r_cmd': 4.398140730040997, 'r_smooth': 1.297246673190924, 'r_alternate': 6.234298832868401}}
+Creating test environment
+[36m(RolloutWorker pid=376102)[39m 2023-06-08 16:52:23,624	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 16:52:24,187	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+2023-06-08 16:52:24,350	INFO trainable.py:913 -- Restored on 192.168.56.81 from checkpoint: /home/alhussein.jamil/ray_results/PPO_cassie-v0_2023-06-08_16-48-563isdme25/checkpoint_000001
+2023-06-08 16:52:24,350	INFO trainable.py:922 -- Current state after restoring: {'_iteration': 1, '_timesteps_total': None, '_time_total': 11.611334323883057, '_episodes_total': 10000}
+Episode 1 Reward Mean 1.6644038272644568 Q_lef_frc 0.0 Q_left_spd 1.0
+Hyperparameter iteration: 3
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.9935594276634973, 'a_stance': 2.1136041820479936, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 7.029585945658272, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [1.5421104401416752, 3.852731139614973], 'feet_distance_x': [0.0, 4.13335691005175], 'feet_distance_y': [0.0, 1.322503582429285], 'feet_distance_z': [0.0, 0.7566352742888512], 'feet_pelvis_height': 0.71629738541196, 'feet_height': 1.5808873283630598, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.026203445218665702, 'reward_coeffs': {'bias': 3.0614013517206593, 'r_biped': 9.66801284561932, 'r_cmd': 7.360177807090277, 'r_smooth': 2.4490201074054894, 'r_alternate': 10.530585356370455}}
+Creating test environment
+[36m(RolloutWorker pid=377864)[39m 2023-06-08 16:52:41,538	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 16:52:41,864	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+2023-06-08 16:52:42,012	INFO trainable.py:913 -- Restored on 192.168.56.81 from checkpoint: /home/alhussein.jamil/ray_results/PPO_cassie-v0_2023-06-08_16-48-563isdme25/checkpoint_000001
+2023-06-08 16:52:42,012	INFO trainable.py:922 -- Current state after restoring: {'_iteration': 1, '_timesteps_total': None, '_time_total': 11.611334323883057, '_episodes_total': 10000}
+Episode 1 Reward Mean 2.7139190642954665 Q_lef_frc 0.0 Q_left_spd 1.0
+Hyperparameter iteration: 4
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 1.6131550897334896, 'a_stance': 2.9705477084467864, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 8.818188319035988, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [2.0556830270387882, 4.990640307399603], 'feet_distance_x': [0.0, 5.01788175972333], 'feet_distance_y': [0.0, 1.743068944127022], 'feet_distance_z': [0.0, 1.129410555100431], 'feet_pelvis_height': 1.1261465442350242, 'feet_height': 1.8903548422050827, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.03436493505899134, 'reward_coeffs': {'bias': 6.092866706086205, 'r_biped': 13.561875293651635, 'r_cmd': 7.591784776997391, 'r_smooth': 4.506313731054627, 'r_alternate': 14.678738642613814}}
+[36m(RolloutWorker pid=379641)[39m 2023-06-08 16:52:58,797	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+2023-06-08 16:52:59,544	WARNING util.py:67 -- Install gputil for GPU system monitoring.
+2023-06-08 16:52:59,702	INFO trainable.py:913 -- Restored on 192.168.56.81 from checkpoint: /home/alhussein.jamil/ray_results/PPO_cassie-v0_2023-06-08_16-48-563isdme25/checkpoint_000001
+2023-06-08 16:52:59,702	INFO trainable.py:922 -- Current state after restoring: {'_iteration': 1, '_timesteps_total': None, '_time_total': 11.611334323883057, '_episodes_total': 10000}
+Creating test environment
+Episode 1 Reward Mean 5.771165613391475 Q_lef_frc 0.0 Q_left_spd 1.0
+Hyperparameter iteration: 5
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 3.1422916680520534, 'a_stance': 5.034421703179242, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 9.002834775641787, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [3.6673636330680925, 6.449131945015902], 'feet_distance_x': [0.0, 5.415144545627624], 'feet_distance_y': [0.0, 2.4424342279053564], 'feet_distance_z': [0.0, 1.6965722574739661], 'feet_pelvis_height': 1.9765185993439347, 'feet_height': 2.5633028134298113, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.05481902103902653, 'reward_coeffs': {'bias': 10.927162744412204, 'r_biped': 21.290232401702273, 'r_cmd': 12.610728279866205, 'r_smooth': 6.793584786710908, 'r_alternate': 28.178134089247205}}
+Traceback (most recent call last):
+  File "run.py", line 168, in <module>
+    trainer = trainer.build()
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm_config.py", line 1071, in build
+    return algo_class(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 466, in __init__
+    super().__init__(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 169, in __init__
+    self.setup(copy.deepcopy(self.config))
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 592, in setup
+    self.workers = WorkerSet(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 172, in __init__
+    self._setup(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 242, in _setup
+    self.add_workers(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 629, in add_workers
+    for result in self.__worker_manager.foreach_actor(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 599, in foreach_actor
+    _, remote_results = self.__fetch_result(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 467, in __fetch_result
+    ready, _ = ray.wait(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/worker.py", line 2719, in wait
+    ready_ids, remaining_ids = worker.core_worker.wait(
+  File "python/ray/_raylet.pyx", line 1870, in ray._raylet.CoreWorker.wait
+  File "python/ray/_raylet.pyx", line 201, in ray._raylet.check_status
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "run.py", line 168, in <module>
+    trainer = trainer.build()
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm_config.py", line 1071, in build
+    return algo_class(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 466, in __init__
+    super().__init__(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 169, in __init__
+    self.setup(copy.deepcopy(self.config))
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 592, in setup
+    self.workers = WorkerSet(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 172, in __init__
+    self._setup(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 242, in _setup
+    self.add_workers(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 629, in add_workers
+    for result in self.__worker_manager.foreach_actor(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 599, in foreach_actor
+    _, remote_results = self.__fetch_result(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 467, in __fetch_result
+    ready, _ = ray.wait(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/worker.py", line 2719, in wait
+    ready_ids, remaining_ids = worker.core_worker.wait(
+  File "python/ray/_raylet.pyx", line 1870, in ray._raylet.CoreWorker.wait
+  File "python/ray/_raylet.pyx", line 201, in ray._raylet.check_status
+KeyboardInterrupt

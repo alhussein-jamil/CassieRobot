@@ -1,0 +1,89 @@
+run:
+  chkpt_freq: 30
+  epochs: 2
+  hyper_par_iter: 10
+  sim_fps: 30
+  sim_freq: 20
+training:
+  debugging:
+    log_level: INFO
+    logger_creator: ???
+  environment:
+    clip_actions: true
+    disable_env_checking: true
+    env: cassie-v0
+    env_config:
+      a_stance: 1.1258488357002692
+      a_swing: 0
+      b_stance: 1
+      b_swing: 0.7125782106113909
+      feet_distance_x:
+      - 0.0
+      - 2.786362524513087
+      feet_distance_y:
+      - 0.0
+      - 1.0855146149001178
+      feet_distance_z:
+      - 0.0
+      - 0.8783829992096867
+      feet_height: 1.2332293638607488
+      feet_pelvis_height: 0.9285177978698584
+      kappa: 25
+      max_simulation_steps: 400
+      model: cassie
+      pelvis_height:
+      - 1.6048953721035186
+      - 3.6922250415720725
+      render_mode: rgb_array
+      reset_noise_scale: 0.02345991667152216
+      reward_coeffs:
+        bias: 2.9363787691345844
+        r_alternate: 3.967221172084739
+        r_biped: 7.201370813097579
+        r_cmd: 9.67522543240097
+        r_smooth: 1.9910821311365396
+      steps_per_cycle: 25
+      terminate_when_unhealthy: true
+      x_cmd_vel: 4.055654192608794
+      y_cmd_vel: 0
+      z_cmd_vel: 0
+    normalize_actions: false
+    render_env: true
+  framework:
+    eager_tracing: false
+    framework: torch
+  resources:
+    num_cpus_per_worker: 1
+    num_gpus: 0
+    num_gpus_per_worker: 0
+  rollouts:
+    batch_mode: truncate_episodes
+    num_envs_per_worker: 1
+    num_rollout_workers: 16
+    observation_filter: MeanStdFilter
+    rollout_fragment_length: auto
+  training:
+    clip_param: 0.3
+    entropy_coeff: 0.01
+    gamma: 0.99
+    kl_coeff: 0.2
+    kl_target: 0.01
+    lambda_: 0.92
+    lr: 0.003
+    model:
+      fcnet_activation: swish
+      fcnet_hiddens:
+      - 128
+      - 128
+      free_log_std: true
+      vf_share_layers: false
+    num_sgd_iter: 8
+    optimizer:
+      type: adam
+    sgd_minibatch_size: 2000
+    shuffle_sequences: true
+    train_batch_size: 10000
+    use_critic: true
+    use_gae: true
+    vf_clip_param: 1000.0
+    vf_loss_coeff: 0.5

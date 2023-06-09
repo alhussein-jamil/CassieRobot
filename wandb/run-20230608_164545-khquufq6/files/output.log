@@ -1,0 +1,58 @@
+Hyperparameter iteration: 0
+env_config {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 16:45:46,586	INFO algorithm.py:527 -- Current log_level is WARN. For more information, set 'log_level': 'INFO' / 'DEBUG' or use the -v and -vv flags.
+[36m(RolloutWorker pid=345801)[39m 2023-06-08 16:45:52,002	WARNING env_runner_v2.py:276 -- Could not import gymnasium.envs.classic_control.rendering! Try `pip install gymnasium[all]`.
+[36m[1m(autoscaler +19s)[39m[22m Tip: use `ray status` to view detailed cluster status. To disable these messages, set RAY_SCHEDULER_EVENTS=0.
+[33m[1m(autoscaler +19s)[39m[22m Warning: The following resource request cannot be scheduled right now: {'CPU': 1.0}. This is likely due to all cluster resources being claimed by actors. Consider creating fewer actors or adding more nodes to this Ray cluster.
+Traceback (most recent call last):
+  File "run.py", line 168, in <module>
+    trainer = trainer.build()
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm_config.py", line 1071, in build
+    return algo_class(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 466, in __init__
+    super().__init__(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 169, in __init__
+    self.setup(copy.deepcopy(self.config))
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 592, in setup
+    self.workers = WorkerSet(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 172, in __init__
+    self._setup(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 242, in _setup
+    self.add_workers(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 629, in add_workers
+    for result in self.__worker_manager.foreach_actor(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 599, in foreach_actor
+    _, remote_results = self.__fetch_result(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 467, in __fetch_result
+    ready, _ = ray.wait(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/worker.py", line 2719, in wait
+    ready_ids, remaining_ids = worker.core_worker.wait(
+  File "python/ray/_raylet.pyx", line 1870, in ray._raylet.CoreWorker.wait
+  File "python/ray/_raylet.pyx", line 201, in ray._raylet.check_status
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "run.py", line 168, in <module>
+    trainer = trainer.build()
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm_config.py", line 1071, in build
+    return algo_class(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 466, in __init__
+    super().__init__(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 169, in __init__
+    self.setup(copy.deepcopy(self.config))
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 592, in setup
+    self.workers = WorkerSet(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 172, in __init__
+    self._setup(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 242, in _setup
+    self.add_workers(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 629, in add_workers
+    for result in self.__worker_manager.foreach_actor(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 599, in foreach_actor
+    _, remote_results = self.__fetch_result(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/rllib/utils/actor_manager.py", line 467, in __fetch_result
+    ready, _ = ray.wait(
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/alhussein.jamil/.pyenv/versions/cassie/lib/python3.8/site-packages/ray/_private/worker.py", line 2719, in wait

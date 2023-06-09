@@ -1,0 +1,125 @@
+{
+    "os": "Linux-5.15.0-73-generic-x86_64-with-glibc2.34",
+    "python": "3.8.16",
+    "heartbeatAt": "2023-06-08T14:45:46.533737",
+    "startedAt": "2023-06-08T14:45:45.934798",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "run.py",
+    "codePath": "run.py",
+    "git": {
+        "remote": "git@github.com:alhussein-jamil/CassieRobot.git",
+        "commit": "bb62d5c5e0ae6cacdd936a03a6da7b0ae71fa325"
+    },
+    "email": "alhussein.jamil@local.wandercraft.eu",
+    "root": "/home/alhussein.jamil/CassieRobot",
+    "host": "WDC-a2087379",
+    "username": "alhussein.jamil",
+    "executable": "/home/alhussein.jamil/.pyenv/versions/cassie/bin/python",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 3101.0745,
+        "min": 2200.0,
+        "max": 3600.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 4113.627,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 4113.694,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 2200.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 2200.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 2200.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 4040.767,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 3848.862,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 4123.962,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 2800.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 3600.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 2200.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 3600.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 2800.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 4116.862,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 3600.0,
+            "min": 2200.0,
+            "max": 3600.0
+        },
+        {
+            "current": 3600.0,
+            "min": 2200.0,
+            "max": 3600.0
+        }
+    ],
+    "disk": {
+        "total": 914.321403503418,
+        "used": 265.5184898376465
+    },
+    "gpu": "NVIDIA GeForce GT 1030",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce GT 1030",
+            "memory_total": 2147483648
+        }
+    ],
+    "memory": {
+        "total": 31.270034790039062
+    }
+}

@@ -253,14 +253,15 @@ if __name__ == "__main__":
         mode="max",
         perturbation_interval=2,
         hyperparam_mutations=flattened,
+        
     )
-
+    N = 6
     analysis = tune.run(
         lambda hyper_config : train_and_evaluate(hyper_config, config ,max_test_i),
         config=flattened,
         scheduler=pbt_scheduler,
         num_samples=config["run"]["hyper_par_iter"],
-        # resources_per_trial=tune.PlacementGroupFactory([{"CPU":20}]+[{'CPU':1}]*20)
+        resources_per_trial = tune.PlacementGroupFactory([{'CPU': 1.0}] + [{'CPU': 1.0}] * N)
 
     )
 

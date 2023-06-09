@@ -1,0 +1,26 @@
+2023-06-08 16:48:08,042 INFO    MainThread:353137 [wandb_setup.py:_flush():76] Current SDK version is 0.15.4
+2023-06-08 16:48:08,042 INFO    MainThread:353137 [wandb_setup.py:_flush():76] Configure stats pid to 353137
+2023-06-08 16:48:08,042 INFO    MainThread:353137 [wandb_setup.py:_flush():76] Loading settings from /home/alhussein.jamil/.config/wandb/settings
+2023-06-08 16:48:08,042 INFO    MainThread:353137 [wandb_setup.py:_flush():76] Loading settings from /home/alhussein.jamil/CassieRobot/wandb/settings
+2023-06-08 16:48:08,042 INFO    MainThread:353137 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2023-06-08 16:48:08,042 INFO    MainThread:353137 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2023-06-08 16:48:08,042 INFO    MainThread:353137 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'run.py', 'program': 'run.py'}
+2023-06-08 16:48:08,043 INFO    MainThread:353137 [wandb_init.py:_log_setup():507] Logging user logs to /home/alhussein.jamil/CassieRobot/wandb/run-20230608_164808-7wef2y7z/logs/debug.log
+2023-06-08 16:48:08,043 INFO    MainThread:353137 [wandb_init.py:_log_setup():508] Logging internal logs to /home/alhussein.jamil/CassieRobot/wandb/run-20230608_164808-7wef2y7z/logs/debug-internal.log
+2023-06-08 16:48:08,043 INFO    MainThread:353137 [wandb_init.py:init():547] calling init triggers
+2023-06-08 16:48:08,043 INFO    MainThread:353137 [wandb_init.py:init():554] wandb.init called with sweep_config: {}
+config: {'steps_per_cycle': 25, 'a_swing': 0, 'b_swing': 0.5, 'a_stance': 0.5, 'b_stance': 1, 'kappa': 25, 'x_cmd_vel': 1.5, 'y_cmd_vel': 0, 'z_cmd_vel': 0, 'terminate_when_unhealthy': True, 'max_simulation_steps': 400, 'pelvis_height': [0.6, 1.5], 'feet_distance_x': [0.0, 1.0], 'feet_distance_y': [0.0, 0.5], 'feet_distance_z': [0.0, 0.5], 'feet_pelvis_height': 0.3, 'feet_height': 0.6, 'model': 'cassie', 'render_mode': 'rgb_array', 'reset_noise_scale': 0.01, 'reward_coeffs': {'bias': 1.0, 'r_biped': 4.0, 'r_cmd': 3.0, 'r_smooth': 1.0, 'r_alternate': 2.0}}
+2023-06-08 16:48:08,043 INFO    MainThread:353137 [wandb_init.py:init():596] starting backend
+2023-06-08 16:48:08,043 INFO    MainThread:353137 [wandb_init.py:init():600] setting up manager
+2023-06-08 16:48:08,045 INFO    MainThread:353137 [backend.py:_multiprocessing_setup():106] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2023-06-08 16:48:08,047 INFO    MainThread:353137 [wandb_init.py:init():606] backend started and connected
+2023-06-08 16:48:08,050 INFO    MainThread:353137 [wandb_init.py:init():703] updated telemetry
+2023-06-08 16:48:08,067 INFO    MainThread:353137 [wandb_init.py:init():736] communicating run to backend with 60.0 second timeout
+2023-06-08 16:48:08,477 INFO    MainThread:353137 [wandb_run.py:_on_init():2176] communicating current version
+2023-06-08 16:48:08,625 INFO    MainThread:353137 [wandb_run.py:_on_init():2185] got version response 
+2023-06-08 16:48:08,625 INFO    MainThread:353137 [wandb_init.py:init():787] starting run threads in backend
+2023-06-08 16:48:08,694 INFO    MainThread:353137 [wandb_run.py:_console_start():2155] atexit reg
+2023-06-08 16:48:08,694 INFO    MainThread:353137 [wandb_run.py:_redirect():2010] redirect: SettingsConsole.WRAP_RAW
+2023-06-08 16:48:08,694 INFO    MainThread:353137 [wandb_run.py:_redirect():2075] Wrapping output streams.
+2023-06-08 16:48:08,694 INFO    MainThread:353137 [wandb_run.py:_redirect():2100] Redirects installed.
+2023-06-08 16:48:08,695 INFO    MainThread:353137 [wandb_init.py:init():828] run started, returning control to user process
