@@ -420,6 +420,7 @@ class CassieEnv(MujocoEnv):
 
         # Responsable for the swing and stance phase
         def i(phi, a, b):
+            return f.p_between_von_mises(a = a , b = b, kappa = 25 , x = phi)
             return f.von_mises_approx(a, b, self.kappa, phi)
 
         def i_swing_frc(phi):

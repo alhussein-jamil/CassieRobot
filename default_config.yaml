@@ -53,7 +53,7 @@ training:
     lr: 0.003
     train_batch_size: 10000
     model:
-      # custom_model: caps_model
+
       fcnet_hiddens: [128, 128]
       fcnet_activation: swish
       vf_share_layers: false
@@ -97,7 +97,7 @@ training:
 
 run:
   sim_fps: 30
-  sim_freq: 20
-  chkpt_freq: 30
-  epochs: 2
+  sim_freq: 2
+  chkpt_freq: 1
+  epochs: 3
   hyper_par_iter: 10
