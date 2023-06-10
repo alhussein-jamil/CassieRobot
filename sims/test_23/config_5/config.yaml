@@ -1,0 +1,97 @@
+a_stance: 0.5
+a_swing: 0.0
+b_stance: 1.0
+b_swing: 0.5
+bias: !!python/object/apply:numpy.core.multiarray.scalar
+- &id001 !!python/object/apply:numpy.dtype
+  args:
+  - f8
+  - false
+  - true
+  state: !!python/tuple
+  - 3
+  - <
+  - null
+  - null
+  - null
+  - -1
+  - -1
+  - 0
+- !!binary |
+  HXyuK4Ci8j8=
+feet_distance_x:
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    JP81tMy6xz8=
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    Ruzu5u/a8j8=
+feet_distance_y:
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    oBNbNoMsvz8=
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    PSsLRRtg3z8=
+feet_distance_z:
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    ALTF3FEYWD8=
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    SjSfgVEG3z8=
+feet_height: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  lsBpfuU/4T8=
+feet_pelvis_height: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  kBt6XY8A1T8=
+kappa: 25
+max_simulation_steps: 400
+model: cassie
+pelvis_height:
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    /ib2Kf0I3j8=
+- !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    yTIzeJnb9z8=
+r_alternate: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  znrYLFlt+T8=
+r_biped: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  flL7wIMHEkA=
+r_cmd: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  AtYtmx9qDUA=
+r_smooth: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  GGdk6WGK7z8=
+render_mode: rgb_array
+reset_noise_scale: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  jq6Z3YSDgT8=
+steps_per_cycle: 25
+terminate_when_unhealthy: true
+x_cmd_vel: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  uhvd/GVT9j8=
+y_cmd_vel: 0
+z_cmd_vel: 0

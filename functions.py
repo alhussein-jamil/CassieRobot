@@ -59,9 +59,9 @@ def flatten_dict(nested_dict, parent = ""):
     for k, v in nested_dict.items():
         if isinstance(v, dict):
             flat_dict.update(flatten_dict(v, parent + k + "_"))
-        elif isinstance(v, list):
-            for i in range(len(v)):
-                flat_dict[parent + k + "_" + str(i)] = v[i]
+        elif isinstance(v, list) and isinstance(v[0], list):
+                for i in range(len(v)):
+                    flat_dict[parent + k + "_" + str(i)] = v[i]
         else:
             flat_dict[parent + k] = v
     return flat_dict
@@ -78,8 +78,8 @@ def fill_dict_with_list(l, d, index = 0 ):
                 if(isinstance(v[i], float)):
                     v[i] = l[index]
                     index += 1
-        elif isinstance(v, float):
-
-            d[k] = l[index]
+        elif isinstance(v, float) :
+            if("swing" not in k and "stance" not in k ):
+                d[k] = l[index]
             index += 1
     return d

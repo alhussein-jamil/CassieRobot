@@ -1,0 +1,338 @@
+2023-06-10 10:16:34,099 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:16:36,269 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:16:36,269 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:16:36,269 - root - INFO - True
+2023-06-10 10:20:06,013 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:20:08,084 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:20:08,084 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:20:08,084 - root - INFO - True
+2023-06-10 10:20:23,380 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:20:25,436 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:20:25,436 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:20:25,436 - root - INFO - True
+2023-06-10 10:20:57,272 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:20:59,469 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:20:59,470 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:20:59,470 - root - INFO - True
+2023-06-10 10:20:59,476 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (34,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 74, in generate_swarm
+    lb, ub = bounds
+ValueError: too many values to unpack (expected 2)
+2023-06-10 10:21:35,989 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:21:38,235 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:21:38,236 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:21:38,236 - root - INFO - True
+2023-06-10 10:21:38,247 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (34,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 74, in generate_swarm
+    lb, ub = bounds
+ValueError: too many values to unpack (expected 2)
+2023-06-10 10:22:48,115 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:22:50,150 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:22:50,150 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:22:50,150 - root - INFO - True
+2023-06-10 10:22:50,157 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (17,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 74, in generate_swarm
+    lb, ub = bounds
+ValueError: too many values to unpack (expected 2)
+2023-06-10 10:23:28,658 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:23:30,716 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:23:30,716 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:23:30,716 - root - INFO - True
+2023-06-10 10:23:30,723 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (17,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 75, in generate_swarm
+    lb, ub = bounds
+ValueError: too many values to unpack (expected 2)
+2023-06-10 10:24:15,123 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:24:17,173 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:24:17,173 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:24:17,173 - root - INFO - True
+2023-06-10 10:24:17,179 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (17,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 74, in generate_swarm
+    lb, ub = bounds
+ValueError: too many values to unpack (expected 2)
+2023-06-10 10:24:41,963 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:24:44,013 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:24:44,013 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:24:44,013 - root - INFO - True
+2023-06-10 10:24:44,019 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (17,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 75, in generate_swarm
+    lb, ub = bounds
+ValueError: too many values to unpack (expected 2)
+2023-06-10 10:27:18,615 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:27:20,730 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:27:20,731 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:27:20,731 - root - INFO - True
+2023-06-10 10:27:20,739 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (17,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 75, in generate_swarm
+    lb, ub = bounds
+ValueError: too many values to unpack (expected 2)
+2023-06-10 10:27:34,664 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:27:36,717 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:27:36,717 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:27:36,717 - root - INFO - True
+2023-06-10 10:27:36,731 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:29:03,859 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:29:05,992 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:29:05,992 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:29:05,992 - root - INFO - True
+2023-06-10 10:29:06,002 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:30:02,533 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:30:04,998 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:30:04,999 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:30:04,999 - root - INFO - True
+2023-06-10 10:30:05,010 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:30:20,263 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:30:22,316 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:30:22,316 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:30:22,316 - root - INFO - True
+2023-06-10 10:30:22,326 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:34:29,747 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:34:31,784 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:34:31,784 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:34:31,785 - root - INFO - True
+2023-06-10 10:34:31,791 - pyswarms.backend.generators - ERROR - Bounds and/or init_pos should be of size (17,)
+Traceback (most recent call last):
+  File "/home/ajvendetta/.pyenv/versions/cassie/lib/python3.8/site-packages/pyswarms/backend/generators.py", line 76, in generate_swarm
+    np.array(lb)[np.newaxis, :], n_particles, axis=0
+ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (17,) + inhomogeneous part.
+2023-06-10 10:35:21,911 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:35:24,009 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:35:24,009 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:35:24,009 - root - INFO - True
+2023-06-10 10:36:09,813 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:36:11,910 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:36:11,910 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:36:11,910 - root - INFO - True
+2023-06-10 10:36:11,920 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:36:54,804 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:36:56,842 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:36:56,843 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:36:56,843 - root - INFO - True
+2023-06-10 10:36:56,852 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:37:38,581 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:37:40,678 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:37:40,678 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:37:40,678 - root - INFO - True
+2023-06-10 10:37:40,688 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:39:53,037 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:39:55,348 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:39:55,348 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:39:55,348 - root - INFO - True
+2023-06-10 10:39:55,360 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:42:09,041 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:42:11,550 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:42:11,550 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:42:11,550 - root - INFO - True
+2023-06-10 10:42:11,562 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:44:53,844 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:44:56,022 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:44:56,022 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:44:56,022 - root - INFO - True
+2023-06-10 10:44:56,032 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:49:46,996 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:49:49,042 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:49:49,042 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:49:49,042 - root - INFO - True
+2023-06-10 10:49:49,056 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:50:01,337 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:50:03,404 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:50:03,404 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:50:03,404 - root - INFO - True
+2023-06-10 10:50:03,413 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:51:03,416 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:51:05,882 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:51:05,882 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:51:05,883 - root - INFO - True
+2023-06-10 10:51:05,893 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 10:55:22,808 - root - INFO - Config file: default_config.yaml
+2023-06-10 10:55:24,937 - root - INFO - Simulation directory: ./sims/
+2023-06-10 10:55:24,937 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 10:55:24,937 - root - INFO - True
+2023-06-10 10:55:24,947 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 11:44:08,456 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:44:10,845 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:44:10,845 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:44:10,845 - root - INFO - True
+2023-06-10 11:44:10,854 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 11:45:55,894 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:45:58,089 - root - INFO - Running clean run
+2023-06-10 11:45:58,090 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:45:58,090 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:45:58,090 - root - INFO - True
+2023-06-10 11:45:58,099 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 11:47:55,572 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:47:57,753 - root - INFO - Running clean run
+2023-06-10 11:47:57,754 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:47:57,754 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:47:57,754 - root - INFO - True
+2023-06-10 11:48:14,197 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:48:16,394 - root - INFO - Running clean run
+2023-06-10 11:48:16,394 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:48:16,394 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:48:16,394 - root - INFO - True
+2023-06-10 11:48:16,403 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 11:48:54,947 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:48:57,163 - root - INFO - Running clean run
+2023-06-10 11:48:57,163 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:48:57,163 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:48:57,163 - root - INFO - True
+2023-06-10 11:48:57,172 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 11:49:15,109 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:49:17,182 - root - INFO - Running clean run
+2023-06-10 11:49:17,183 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:49:17,183 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:49:17,183 - root - INFO - True
+2023-06-10 11:49:17,191 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 11:50:05,946 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:50:08,023 - root - INFO - Running clean run
+2023-06-10 11:50:08,023 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:50:08,024 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:50:08,024 - root - INFO - True
+2023-06-10 11:50:08,033 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 11:51:55,796 - root - INFO - Config file: default_config.yaml
+2023-06-10 11:51:57,984 - root - INFO - Running clean run
+2023-06-10 11:51:57,984 - root - INFO - Simulation directory: ./sims/
+2023-06-10 11:51:57,984 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 11:51:57,984 - root - INFO - True
+2023-06-10 11:51:57,994 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:00:10,105 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:00:12,145 - root - INFO - Running clean run
+2023-06-10 12:00:12,145 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:00:12,145 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:00:12,145 - root - INFO - True
+2023-06-10 12:00:12,154 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:01:01,053 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:01:03,130 - root - INFO - Running clean run
+2023-06-10 12:01:03,130 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:01:03,130 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:01:03,130 - root - INFO - True
+2023-06-10 12:01:03,140 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:02:04,358 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:02:06,423 - root - INFO - Running clean run
+2023-06-10 12:02:06,423 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:02:06,423 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:02:06,423 - root - INFO - True
+2023-06-10 12:02:06,432 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:10:08,341 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:10:10,531 - root - INFO - Running clean run
+2023-06-10 12:10:10,531 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:10:10,531 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:10:10,531 - root - INFO - True
+2023-06-10 12:10:10,541 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:10:58,205 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:11:00,342 - root - INFO - Running clean run
+2023-06-10 12:11:00,342 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:11:00,342 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:11:00,342 - root - INFO - True
+2023-06-10 12:11:00,351 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:12:12,749 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:12:14,851 - root - INFO - Running clean run
+2023-06-10 12:12:14,851 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:12:14,851 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:12:14,851 - root - INFO - True
+2023-06-10 12:12:14,860 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:12:56,055 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:12:58,201 - root - INFO - Running clean run
+2023-06-10 12:12:58,201 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:12:58,201 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:12:58,201 - root - INFO - True
+2023-06-10 12:12:58,213 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:15:13,377 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:15:15,743 - root - INFO - Running clean run
+2023-06-10 12:15:15,743 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:15:15,744 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:15:15,744 - root - INFO - True
+2023-06-10 12:15:15,756 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:18:30,704 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:18:32,952 - root - INFO - Running clean run
+2023-06-10 12:18:32,952 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:18:32,952 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:18:32,952 - root - INFO - True
+2023-06-10 12:18:32,966 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:19:56,227 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:19:58,511 - root - INFO - Running clean run
+2023-06-10 12:19:58,511 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:19:58,512 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:19:58,512 - root - INFO - True
+2023-06-10 12:19:58,526 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:20:45,759 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:20:48,232 - root - INFO - Running clean run
+2023-06-10 12:20:48,232 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:20:48,232 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:20:48,232 - root - INFO - True
+2023-06-10 12:20:48,244 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:32:06,597 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:32:08,877 - root - INFO - Running clean run
+2023-06-10 12:32:08,877 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:32:08,877 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:32:08,877 - root - INFO - True
+2023-06-10 12:32:08,890 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:35:03,658 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:35:06,383 - root - INFO - Running clean run
+2023-06-10 12:35:06,384 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:35:06,384 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:35:06,384 - root - INFO - True
+2023-06-10 12:35:06,397 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:36:12,789 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:36:15,329 - root - INFO - Running clean run
+2023-06-10 12:36:15,330 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:36:15,330 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:36:15,330 - root - INFO - True
+2023-06-10 12:36:15,342 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:36:58,102 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:37:00,656 - root - INFO - Running clean run
+2023-06-10 12:37:00,656 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:37:00,656 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:37:00,656 - root - INFO - True
+2023-06-10 12:37:00,675 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 12:37:30,941 - root - INFO - Config file: default_config.yaml
+2023-06-10 12:37:33,264 - root - INFO - Running clean run
+2023-06-10 12:37:33,264 - root - INFO - Simulation directory: ./sims/
+2023-06-10 12:37:33,264 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 12:37:33,264 - root - INFO - True
+2023-06-10 12:37:33,275 - pyswarms.single.global_best - INFO - Optimize for 10 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2023-06-10 14:18:05,805 - root - INFO - Config file: default_config.yaml
+2023-06-10 14:18:07,923 - root - INFO - Running clean run
+2023-06-10 14:18:07,923 - root - INFO - Simulation directory: ./sims/
+2023-06-10 14:18:07,923 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 14:18:07,923 - root - INFO - True
+2023-06-10 14:18:47,167 - root - INFO - Config file: default_config.yaml
+2023-06-10 14:18:49,341 - root - INFO - Running clean run
+2023-06-10 14:18:49,341 - root - INFO - Simulation directory: ./sims/
+2023-06-10 14:18:49,341 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 14:18:49,342 - root - INFO - True
+2023-06-10 14:19:15,615 - root - INFO - Config file: default_config.yaml
+2023-06-10 14:19:17,760 - root - INFO - Running clean run
+2023-06-10 14:19:17,760 - root - INFO - Simulation directory: ./sims/
+2023-06-10 14:19:17,760 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 14:19:17,760 - root - INFO - True
+2023-06-10 14:20:35,909 - root - INFO - Config file: default_config.yaml
+2023-06-10 14:20:38,170 - root - INFO - Running clean run
+2023-06-10 14:20:38,170 - root - INFO - Simulation directory: ./sims/
+2023-06-10 14:20:38,170 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 14:20:38,170 - root - INFO - True
+2023-06-10 14:53:19,540 - root - INFO - Config file: default_config.yaml
+2023-06-10 14:53:21,945 - root - INFO - Simulation directory: ./sims/
+2023-06-10 14:53:21,945 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 14:53:21,945 - root - INFO - True
+2023-06-10 14:57:42,571 - root - INFO - Config file: default_config.yaml
+2023-06-10 14:57:44,994 - root - INFO - Simulation directory: ./sims/
+2023-06-10 14:57:44,994 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 14:57:44,994 - root - INFO - True
+2023-06-10 14:58:17,601 - root - INFO - Config file: default_config.yaml
+2023-06-10 14:58:19,758 - root - INFO - Running clean run
+2023-06-10 14:58:19,758 - root - INFO - Simulation directory: ./sims/
+2023-06-10 14:58:19,758 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 14:58:19,758 - root - INFO - True
+2023-06-10 15:14:17,529 - root - INFO - Config file: default_config.yaml
+2023-06-10 15:14:20,153 - root - INFO - Running clean run
+2023-06-10 15:14:20,153 - root - INFO - Simulation directory: ./sims/
+2023-06-10 15:14:20,153 - root - INFO - Log directory: /home/ajvendetta/ray_results
+2023-06-10 15:14:20,153 - root - INFO - True

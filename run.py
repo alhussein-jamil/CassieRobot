@@ -16,6 +16,7 @@ from ray.tune.registry import register_env
 import functions as f
 from ray import tune
 from ray.tune.schedulers import PopulationBasedTraining
+from pyswarms.single.global_best import GlobalBestPSO
 
 # import wandb
 from cassie import CassieEnv, MyCallbacks
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     argparser.add_argument("-simdir", "--simdir", type=str, help="Simulation directory")
     argparser.add_argument("-logdir", "--logdir", type=str, help="Log directory")
     argparser.add_argument("--config", type=str, help="Path to config file")
-
+    argparser.add_argument("--swarm", action="store_true", help="Use swarm optimizer")
     args = argparser.parse_args()
 
     if args.logdir is not None:
@@ -103,21 +104,20 @@ if __name__ == "__main__":
     for key, value in config["training"]["environment"]["env_config"].items():
         if isinstance(value, list):
 
-            hyperparameter_ranges[key] = [tune.uniform(
-            
-                value[0] - (value[1] - value[0]) / 2,
-                value[0] + (value[1] - value[0]) / 2)
+            hyperparameter_ranges[key] = [[
+
+                value[0] - (value[1] - value[0]) / 4,
+                value[0] + (value[1] - value[0]) / 4]
             ,
-            tune.uniform(
-                value[1] - (value[1] - value[0]) / 2,
-                value[1] + (value[1] - value[0]) / 2
-            )
+            [
+                value[1] - (value[1] - value[0]) / 4,
+                value[1] + (value[1] - value[0]) / 4
+            ]
             ]
         elif isinstance(value, float):
-            hyperparameter_ranges[key] = tune.uniform(value - 0.1 * value, value + 0.1 * value)
-    print(hyperparameter_ranges)
-    print("flattened: ", f.flatten_dict(hyperparameter_ranges))
-    flattened = f.flatten_dict(hyperparameter_ranges)
+            hyperparameter_ranges[key] = [value - value / 4, value + value / 4] if value >= 0 else [value + value / 4, value - value / 4]
+    print("Ranges", hyperparameter_ranges)
+    hyperparameter_bounds = f.flatten_dict(hyperparameter_ranges)
     # wandb.init(project="Cassie", config=config["training"]["environment"]["env_config"])
     Trainer = PPOConfig
     # Create sim directory if it doesn't exist
@@ -130,97 +130,97 @@ if __name__ == "__main__":
     )
     max_test_i = latest_directory + 1
 
-    # Create folder for test
-    test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
-    os.makedirs(test_dir, exist_ok=True)
-
     # Define video codec and framerate
     fps = config["run"]["sim_fps"]
     print("fps", fps)
 
     checkpoint_frequency = config["run"]["chkpt_freq"]
     simulation_frequency = config["run"]["sim_freq"]
-    def train_and_evaluate(hyper_config, config, max_test_i, i=0):
 
-        import functions as f
+    def train_and_evaluate( config, hyper_configs=  [None]):
+        global max_test_i
+        # Create folder for test
+        test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
+        os.makedirs(test_dir, exist_ok=True)
 
-        training_config = config["training"]
-        print("hyper_config", list(hyper_config.values()))
-        print("training_config", training_config["environment"]["env_config"])
-        f.fill_dict_with_list(list(hyper_config.values()), training_config["environment"]["env_config"])
-        trainer = (
-            Trainer()
-            .environment(**training_config.get("environment", {}))
-            .rollouts(**training_config.get("rollouts", {}))
-            .checkpointing(**training_config.get("checkpointing", {}))
-            .debugging(
-                logger_creator=custom_log_creator(
-                    args.logdir, "cassie_PPO_config_{}_".format(i)
+        metrics = []
+        for i,hyper_config in enumerate(hyper_configs):
+
+            training_config = config["training"]
+
+            if hyper_config is not None:
+                f.fill_dict_with_list(hyper_config, training_config["environment"]["env_config"])
+            print("Training config ", training_config["environment"]["env_config"])
+            trainer = (
+                Trainer()
+                .environment(**training_config.get("environment", {}))
+                .rollouts(**training_config.get("rollouts", {}))
+                .checkpointing(**training_config.get("checkpointing", {}))
+                .debugging(
+                    logger_creator=custom_log_creator(
+                        args.logdir, "cassie_PPO_config_{}_".format(i)
+                    )
+                    if args.logdir is not None
+                    else None
                 )
-                if args.logdir is not None
-                else None
-            )
-            .training(**training_config.get("training", {}))
-            .framework(**training_config.get("framework", {}))
-            .resources(**training_config.get("resources", {}))
-            .evaluation(**training_config.get("evaluation", {}))
-            .callbacks(callbacks_class=MyCallbacks)
-        )
-
-        trainer = trainer.build()
-
-        # Build trainer
-        if not clean_run:
-            if load:
-                trainer.restore(checkpoint)
-
-        print("Creating test environment")
-        env = CassieEnv(config["training"]["environment"])
-        env.render_mode = "rgb_array"
-
-        os.mkdir(os.path.join(test_dir, "config_{}".format(i)))
-        # save config
-        with open(
-            os.path.join(test_dir, "config_{}".format(i), "config.yaml"), "w"
-        ) as f:
-            yaml.dump(config, f)
-
-        for epoch in range(
-            trainer.iteration if hasattr(trainer, "iteration") else 0,
-            config["run"].get("epochs", 1000),
-        ):
-            # Train for one iteration
-            result = trainer.train()
-            # wandb.log(
-            #     {
-            #         "iteration": i,
-            #         **training_config["environment"]["env_config"],
-            #         "loss": result["episode_reward_mean"],
-            #     }
-            # )
-            print(
-                "Episode {} Reward Mean {} Q_lef_frc {} Q_left_spd {}".format(
-                    epoch,
-                    result["episode_reward_mean"],
-                    result["custom_metrics"]["custom_quantities_q_left_frc_mean"],
-                    result["custom_metrics"]["custom_quantities_q_left_spd_mean"],
-                )
+                .training(**training_config.get("training", {}))
+                .framework(**training_config.get("framework", {}))
+                .resources(**training_config.get("resources", {}))
+                .evaluation(**training_config.get("evaluation", {}))
+                .callbacks(callbacks_class=MyCallbacks)
             )
 
-            # Save model every 10 epochs
-            if epoch % checkpoint_frequency == 0:
-                checkpoint_path = trainer.save()
-                print("Checkpoint saved at", checkpoint_path)
+            trainer = trainer.build()
 
-            # Run a test every 20 epochs
-            if epoch % simulation_frequency == 0:
-                evaluate(trainer, env, epoch, i)
+            # Build trainer
+            if not clean_run:
+                if load:
+                    trainer.restore(checkpoint)
 
-                max_test_i += 1
+            print("Creating test environment")
+            env = CassieEnv(config["training"]["environment"]["env_config"])
+            env.render_mode = "rgb_array"
 
-        return  result["episode_reward_mean"]
+            os.mkdir(os.path.join(test_dir, "config_{}".format(i)))
+            # save config
+            with open(
+                os.path.join(test_dir, "config_{}".format(i), "config.yaml"), "w"
+            ) as file:
+                yaml.dump(config["training"]["environment"]["env_config"], file)
 
-    def evaluate(trainer, env, epoch, i):
+            for epoch in range(
+                trainer.iteration if hasattr(trainer, "iteration") else 0,
+                config["run"].get("epochs", 1000),
+            ):
+                # Train for one iteration
+                result = trainer.train()
+
+                print(
+                    "Episode {} Reward Mean {} Q_lef_frc {} Q_left_spd {}".format(
+                        epoch,
+                        result["episode_reward_mean"],
+                        result["custom_metrics"]["custom_quantities_q_left_frc_mean"],
+                        result["custom_metrics"]["custom_quantities_q_left_spd_mean"],
+                    )
+                )
+                if(result["custom_metrics"]["custom_quantities_q_left_frc_mean"]==0.0):
+                    break
+
+                # Save model every 10 epochs
+                if epoch % checkpoint_frequency == 0:
+                    checkpoint_path = trainer.save()
+                    print("Checkpoint saved at", checkpoint_path)
+
+                # Run a test every 20 epochs
+                if epoch % simulation_frequency == 0:
+                    evaluate(trainer, env, epoch, i,test_dir)
+
+            max_test_i += 1
+            metrics.append(result["episode_reward_mean"])
+        return  metrics
+
+    def evaluate(trainer, env, epoch, i,test_dir):
+
         # Make a steps counter
         steps = 0
 
@@ -247,25 +247,12 @@ if __name__ == "__main__":
         media.write_video(video_path, frames, fps=fps)
         print("Test saved at", video_path)
 
-    pbt_scheduler = PopulationBasedTraining(
-        time_attr="training_iteration",
-        metric="episode_reward_mean",
-        mode="max",
-        perturbation_interval=2,
-        hyperparam_mutations=flattened,
-        
-    )
-    N = 6
-    analysis = tune.run(
-        lambda hyper_config : train_and_evaluate(hyper_config, config ,max_test_i),
-        config=flattened,
-        scheduler=pbt_scheduler,
-        num_samples=config["run"]["hyper_par_iter"],
-        resources_per_trial = tune.PlacementGroupFactory([{'CPU': 1.0}] + [{'CPU': 1.0}] * N)
 
-    )
-
-    best_trial = analysis.get_best_trial("episode_reward_mean", mode="max")
-    best_config = best_trial.config
-
-
+if args.swarm:
+    # Define PSO options
+    pso_options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+    min_bounds, max_bounds = [x[0] for x in hyperparameter_bounds.values()], [x[1] for x in hyperparameter_bounds.values()]
+    optimizer = GlobalBestPSO(n_particles=10, dimensions=len(hyperparameter_bounds), bounds=(min_bounds,max_bounds), options=pso_options)
+    best_hyperparameters, best_fitness = optimizer.optimize(lambda hyperconfigs: train_and_evaluate(config,  hyper_configs=hyperconfigs), iters=config["run"]["hyper_par_iter"])
+else: 
+    train_and_evaluate(config)
