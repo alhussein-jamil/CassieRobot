@@ -85,7 +85,7 @@ class CassieEnv(MujocoEnv):
             np.float32(c.low_action), np.float32(c.high_action)
         )
         #dictionary of keys containing r_
-        self.reward_coeffs = {k:v for k,v in env_config.items() if k.startswith('r_')}
+        self.reward_coeffs = {k:v for k,v in env_config.items() if k.startswith('r_') or k.startswith('bias')}
         self._reset_noise_scale = env_config.get("reset_noise_scale", DEFAULT_CONFIG["reset_noise_scale"])
 
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
@@ -418,7 +418,7 @@ class CassieEnv(MujocoEnv):
 
         # Responsable for the swing and stance phase
         def i(phi, a, b):
-            return f.p_between_von_mises(a = a , b = b, kappa = 25 , x = phi)
+            return f.p_between_von_mises(a = a , b = b, kappa = self.kappa , x = phi)
             return f.von_mises_approx(a, b, self.kappa, phi)
 
         def i_swing_frc(phi):
