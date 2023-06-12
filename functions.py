@@ -79,7 +79,6 @@ def fill_dict_with_list(l, d, index = 0 ):
                     v[i] = l[index]
                     index += 1
         elif isinstance(v, float) :
-            if("swing" not in k and "stance" not in k ):
-                d[k] = l[index]
+            d[k] = l[index]
             index += 1
     return d

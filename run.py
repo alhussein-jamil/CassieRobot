@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 
 import mediapy as media
-import numpy as np
 import ray
 import torch
 import yaml
@@ -14,10 +13,8 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.logger import UnifiedLogger
 from ray.tune.registry import register_env
 import functions as f
-from ray import tune
-from ray.tune.schedulers import PopulationBasedTraining
 from pyswarms.single.global_best import GlobalBestPSO
-
+import constants as c
 # import wandb
 from cassie import CassieEnv, MyCallbacks
 from loader import Loader
@@ -138,7 +135,7 @@ if __name__ == "__main__":
     simulation_frequency = config["run"]["sim_freq"]
 
     def train_and_evaluate( config, hyper_configs=  [None]):
-        global max_test_i
+        global max_test_i, trainer
         # Create folder for test
         test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
         os.makedirs(test_dir, exist_ok=True)
@@ -147,7 +144,7 @@ if __name__ == "__main__":
         for i,hyper_config in enumerate(hyper_configs):
 
             training_config = config["training"]
-
+            
             if hyper_config is not None:
                 f.fill_dict_with_list(hyper_config, training_config["environment"]["env_config"])
             print("Training config ", training_config["environment"]["env_config"])
@@ -170,8 +167,9 @@ if __name__ == "__main__":
                 .callbacks(callbacks_class=MyCallbacks)
             )
 
-            trainer = trainer.build()
 
+            trainer = trainer.build()
+            
             # Build trainer
             if not clean_run:
                 if load:
@@ -192,18 +190,17 @@ if __name__ == "__main__":
                 trainer.iteration if hasattr(trainer, "iteration") else 0,
                 config["run"].get("epochs", 1000),
             ):
+                c.global_trainer = trainer
                 # Train for one iteration
                 result = trainer.train()
-
                 print(
-                    "Episode {} Reward Mean {} Q_lef_frc {} Q_left_spd {}".format(
+                    "Episode {} Reward Mean {} Distance {} ".format(
                         epoch,
                         result["episode_reward_mean"],
-                        result["custom_metrics"]["custom_quantities_q_left_frc_mean"],
-                        result["custom_metrics"]["custom_quantities_q_left_spd_mean"],
+                        result["custom_metrics"]["custom_metrics_distance_mean"],
                     )
                 )
-                if(result["custom_metrics"]["custom_quantities_q_left_frc_mean"]==0.0):
+                if(result["episode_len_mean"] < 4):
                     break
 
                 # Save model every 10 epochs
@@ -252,7 +249,9 @@ if args.swarm:
     # Define PSO options
     pso_options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
     min_bounds, max_bounds = [x[0] for x in hyperparameter_bounds.values()], [x[1] for x in hyperparameter_bounds.values()]
-    optimizer = GlobalBestPSO(n_particles=10, dimensions=len(hyperparameter_bounds), bounds=(min_bounds,max_bounds), options=pso_options)
+    optimizer = GlobalBestPSO(n_particles=config["run"]["n_particles"], dimensions=len(hyperparameter_bounds), bounds=(min_bounds,max_bounds), options=pso_options)
     best_hyperparameters, best_fitness = optimizer.optimize(lambda hyperconfigs: train_and_evaluate(config,  hyper_configs=hyperconfigs), iters=config["run"]["hyper_par_iter"])
+    print("Best hyperparameters", best_hyperparameters)
+    print("Best fitness", best_fitness)
 else: 
     train_and_evaluate(config)
