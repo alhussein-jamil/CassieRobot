@@ -70,7 +70,7 @@ DEFAULT_CAMERA_CONFIG = {
     "lookat": np.array((0.0, 0.0, 0.85)),  # adjust the height to match Cassie's height
     "elevation": -20.0,
 }
-
+global_trainer = None 
 actuator_ranges = {
     "left-hip-roll": [-4.5, 4.5],
     "left-hip-yaw": [-4.5, 4.5],
@@ -96,6 +96,7 @@ exponential_bornes = {
     "q_pelvis_acc": [0, 100],
     "q_marche_distance": [-1.0, 1.0],
     "q_feet_orientation": [0, np.pi / 4.0],
+    "q_symmetric" : [0, 1.2],
 }
 multiplicators = {}
 for key in exponential_bornes.keys():
@@ -120,8 +121,8 @@ sensor_ranges = {
     "right-shin-output": (-20, 20),
     "right-tarsus-output": (50, 170),
     "right-foot-output": (-140, -30),
-    "pelvis-angular-velocity": (-34.9, 34.9),
     "pelvis-orientation": (0, 1),
+    "pelvis-angular-velocity": (-34.9, 34.9)
 }
 
 # transform the actuator_ranges to a 2d tensor
