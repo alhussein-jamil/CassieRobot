@@ -653,3 +653,123 @@ ValueError: setting an array element with a sequence. The requested array has an
 2023-06-12 08:16:34,633 - root - INFO - Simulation directory: ./sims/
 2023-06-12 08:16:34,633 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
 2023-06-12 08:16:34,633 - root - INFO - True
+2023-06-12 20:35:57,035 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:36:00,564 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:36:00,564 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:36:00,565 - root - INFO - True
+2023-06-12 20:37:03,345 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:37:06,743 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:37:06,743 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:37:06,744 - root - INFO - True
+2023-06-12 20:39:15,045 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:39:18,401 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:39:18,402 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:39:18,402 - root - INFO - True
+2023-06-12 20:39:55,417 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:39:58,851 - root - INFO - Running clean run
+2023-06-12 20:39:58,851 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:39:58,852 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:39:58,852 - root - INFO - True
+2023-06-12 20:41:28,698 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:41:32,360 - root - INFO - Running clean run
+2023-06-12 20:41:32,361 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:41:32,362 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:41:32,362 - root - INFO - True
+2023-06-12 20:42:40,696 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:42:44,064 - root - INFO - Running clean run
+2023-06-12 20:42:44,064 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:42:44,065 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:42:44,065 - root - INFO - True
+2023-06-12 20:43:52,392 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:43:55,776 - root - INFO - Running clean run
+2023-06-12 20:43:55,777 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:43:55,777 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:43:55,778 - root - INFO - True
+2023-06-12 20:44:09,810 - root - INFO - Config file: default_config.yaml
+2023-06-12 20:44:13,213 - root - INFO - Running clean run
+2023-06-12 20:44:13,213 - root - INFO - Simulation directory: ./sims/
+2023-06-12 20:44:13,215 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 20:44:13,215 - root - INFO - True
+2023-06-12 22:53:09,193 - root - INFO - Config file: default_config.yaml
+2023-06-12 22:53:12,637 - root - INFO - Running clean run
+2023-06-12 22:53:12,637 - root - INFO - Simulation directory: ./sims/
+2023-06-12 22:53:12,638 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 22:53:12,638 - root - INFO - True
+2023-06-12 22:53:59,083 - root - INFO - Config file: default_config.yaml
+2023-06-12 22:54:03,204 - root - INFO - Running clean run
+2023-06-12 22:54:03,205 - root - INFO - Simulation directory: ./sims/
+2023-06-12 22:54:03,205 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 22:54:03,205 - root - INFO - True
+2023-06-12 23:00:24,974 - root - INFO - Config file: default_config.yaml
+2023-06-12 23:00:28,780 - root - INFO - Running clean run
+2023-06-12 23:00:28,781 - root - INFO - Simulation directory: ./sims/
+2023-06-12 23:00:28,782 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-12 23:00:28,783 - root - INFO - True
+2023-06-13 07:34:13,986 - root - INFO - Config file: default_config.yaml
+2023-06-13 07:34:17,402 - root - INFO - Simulation directory: ./sims/
+2023-06-13 07:34:17,403 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 07:34:17,403 - root - INFO - True
+2023-06-13 07:36:18,997 - root - INFO - Config file: default_config.yaml
+2023-06-13 07:36:22,453 - root - INFO - Simulation directory: ./sims/
+2023-06-13 07:36:22,454 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 07:36:22,454 - root - INFO - True
+2023-06-13 07:47:19,941 - root - INFO - Config file: default_config.yaml
+2023-06-13 07:47:24,526 - root - INFO - Running clean run
+2023-06-13 07:47:24,527 - root - INFO - Simulation directory: ./sims/
+2023-06-13 07:47:24,527 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 07:47:24,528 - root - INFO - True
+2023-06-13 08:00:54,553 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:00:58,330 - root - INFO - Running clean run
+2023-06-13 08:00:58,330 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:00:58,331 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:00:58,331 - root - INFO - True
+2023-06-13 08:02:33,369 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:02:36,870 - root - INFO - Running clean run
+2023-06-13 08:02:36,871 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:02:36,871 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:02:36,871 - root - INFO - True
+2023-06-13 08:06:07,142 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:06:10,562 - root - INFO - Running clean run
+2023-06-13 08:06:10,562 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:06:10,562 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:06:10,563 - root - INFO - True
+2023-06-13 08:10:38,372 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:10:41,946 - root - INFO - Running clean run
+2023-06-13 08:10:41,946 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:10:41,946 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:10:41,946 - root - INFO - True
+2023-06-13 08:12:10,052 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:12:13,554 - root - INFO - Running clean run
+2023-06-13 08:12:13,554 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:12:13,555 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:12:13,555 - root - INFO - True
+2023-06-13 08:12:44,202 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:12:47,859 - root - INFO - Running clean run
+2023-06-13 08:12:47,860 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:12:47,860 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:12:47,860 - root - INFO - True
+2023-06-13 08:15:04,857 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:15:08,248 - root - INFO - Running clean run
+2023-06-13 08:15:08,248 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:15:08,249 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:15:08,249 - root - INFO - True
+2023-06-13 08:16:27,449 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:16:30,850 - root - INFO - Running clean run
+2023-06-13 08:16:30,850 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:16:30,963 - root - INFO - Log directory: ./ray_results
+2023-06-13 08:16:30,963 - root - INFO - False
+2023-06-13 08:18:25,899 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:18:29,364 - root - INFO - Running clean run
+2023-06-13 08:18:29,364 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:18:29,364 - root - INFO - Log directory: F:\Projects\CassieRobot\ray_results
+2023-06-13 08:18:29,365 - root - INFO - False
+2023-06-13 08:19:46,371 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:19:49,891 - root - INFO - Running clean run
+2023-06-13 08:19:49,891 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:19:49,891 - root - INFO - Log directory: F:\Projects\CassieRobot\ray_results
+2023-06-13 08:19:49,892 - root - INFO - False
+2023-06-13 08:20:28,411 - root - INFO - Config file: default_config.yaml
+2023-06-13 08:20:31,872 - root - INFO - Running clean run
+2023-06-13 08:20:31,872 - root - INFO - Simulation directory: ./sims/
+2023-06-13 08:20:31,873 - root - INFO - Log directory: C:\Users\alhussein Jamil\ray_results
+2023-06-13 08:20:31,873 - root - INFO - True

@@ -75,7 +75,6 @@ class CassieEnv(MujocoEnv):
         self.a_stance = self.r / (self.r + 1)
         self.b_swing = self.a_stance
         self.b_stance = 1.0
-        self.trainer = c.global_trainer
         self.kappa = env_config.get("kappa", DEFAULT_CONFIG["kappa"])
         self.x_cmd_vel = env_config.get("x_cmd_vel", DEFAULT_CONFIG["x_cmd_vel"])
         self.y_cmd_vel = env_config.get("y_cmd_vel", DEFAULT_CONFIG["y_cmd_vel"])
@@ -105,7 +104,7 @@ class CassieEnv(MujocoEnv):
         self.observation_space = Box(
             low=-1.2,
             high=1.2,
-            shape=(25,),
+            shape=(31,),
         )
         MujocoEnv.__init__(
             self,
@@ -188,25 +187,29 @@ class CassieEnv(MujocoEnv):
         p = np.array(
             [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
         )
+
+        sensor_data = self.data.sensordata
+        sensor_data = (sensor_data - c.sensor_ranges[0, :]) / ( c.sensor_ranges[1,:] - c.sensor_ranges[0,:])
         # self.obs = np.array([*self.data.sensordata, *p])
         # return  self.obs
-        temp = []
+        # temp = []
 
-        # normalize the sensor data using sensor_ranges
-        i = 0
-        for key in c.sensor_ranges.keys():
-            for x in self.data.sensor(key).data:
-                temp.append(
-                    (x - c.obs_ranges[0][i]) / (c.obs_ranges[1][i] - c.obs_ranges[0][i])
-                )
-                # temp.append(x)
-                i += 1
-        self.obs = np.clip(
-            np.concatenate([temp, p]),
-            self.observation_space.low,
-            self.observation_space.high,
-        )
+        # # normalize the sensor data using sensor_ranges
+        # i = 0
+        # for key in c.sensor_ranges.keys():
+        #     for x in self.data.sensor(key).data:
+        #         temp.append(
+        #             (x - c.obs_ranges[0][i]) / (c.obs_ranges[1][i] - c.obs_ranges[0][i])
+        #         )
+        #         # temp.append(x)
+        #         i += 1
+        # self.obs = np.clip(
+        #     np.concatenate([temp, p]),
+        #     self.observation_space.low,
+        #     self.observation_space.high,
+        # )
         # getting the read positions of the sensors and concatenate the lists
+        self.obs = np.array([*sensor_data, *p])
         return self.obs
 
     def _get_symmetric_obs(self):
@@ -232,7 +235,7 @@ class CassieEnv(MujocoEnv):
         return symmetric_obs
 
     # computes the reward
-    def compute_reward(self, action):#, symmetric_action):
+    def compute_reward(self, action, symmetric_action):
         # Extract some proxies
         qpos = self.data.qpos.flat.copy()
         qvel = self.data.qvel.flat.copy()
@@ -296,8 +299,8 @@ class CassieEnv(MujocoEnv):
             c.multiplicators["q_action"]
             * float(
                 f.action_dist(
-                    torch.tensor(action).reshape(1, -1),
-                    torch.tensor(self.previous_action).reshape(1, -1),
+                    np.array(action).reshape(1, -1),
+                    np.array(self.previous_action).reshape(1, -1),
                 )
             )
         )
@@ -365,15 +368,15 @@ class CassieEnv(MujocoEnv):
                 self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
             )
         )
-        # r_symmetric = 1 - np.exp(
-        #     c.multiplicators["q_symmetric"]
-        #     * float(
-        #         f.action_dist(
-        #             torch.tensor(action).reshape(1, -1),
-        #             torch.tensor(symmetric_action).reshape(1, -1),
-        #         )
-        #     )
-        # )
+        r_symmetric = 1 - np.exp(
+            c.multiplicators["q_symmetric"]
+            * float(
+                f.action_dist(
+                    action.reshape(1, -1),
+                    symmetric_action.reshape(1, -1),
+                )
+            )
+        )
 
         # self.exponents = {
         #     "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel]))
@@ -488,7 +491,7 @@ class CassieEnv(MujocoEnv):
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
             "r_alternate": r_alternate,
-            "r_symmetric": 0.0,
+            "r_symmetric": r_symmetric,
         }
         reward = self.reward_coeffs["bias"] + sum([rewards[k]*self.reward_coeffs[k] for k in rewards.keys()])/sum(self.reward_coeffs.values())
     
@@ -526,16 +529,15 @@ class CassieEnv(MujocoEnv):
     def step(self, action):
         # clip the action to the ranges in action_space (done inside the config
         # action = np.clip(action, self.action_space.low, self.action_space.high)
-        # if self.trainer is None :
-        #     self.trainer = c.global_trainer
-        # estimated_action = action
 
-        # if self.trainer is not None:
-        #     filterfn = self.trainer.workers.local_worker().filters["default_policy"]
-        #     symmetric_obs = self._get_symmetric_obs()
-        #     filtered_obs = filterfn(symmetric_obs)
-        #     symmetric_action = self.trainer.compute_single_action(filtered_obs)
-        #     estimated_action = np.concatenate([symmetric_action[5:], symmetric_action[:5]])     
+        estimated_action = action
+
+        if c.global_trainer is not None:
+            filterfn = c.global_trainer.workers.local_worker().filters["default_policy"]
+            symmetric_obs = self._get_symmetric_obs()
+            filtered_obs = filterfn(symmetric_obs)
+            symmetric_action = c.global_trainer.compute_single_action(filtered_obs)
+            estimated_action = np.concatenate([symmetric_action[5:], symmetric_action[:5]])     
 
 
         self.do_simulation(action, self.frame_skip)
@@ -544,7 +546,7 @@ class CassieEnv(MujocoEnv):
 
         observation = self._get_obs()
 
-        reward, rewards, metrics = self.compute_reward(action)#, estimated_action)
+        reward, rewards, metrics = self.compute_reward(action, estimated_action)
 
         terminated = self.terminated
 
@@ -579,7 +581,7 @@ class CassieEnv(MujocoEnv):
         self.steps = 0
         self.contact = False
         # self.rewards = {"R_biped": 0, "R_cmd": 0, "R_smooth": 0}
-        self.trainer = c.global_trainer
+
         self.gamma_modified = 1
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq

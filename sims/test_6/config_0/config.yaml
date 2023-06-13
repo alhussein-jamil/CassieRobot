@@ -1,0 +1,25 @@
+bias: 1
+feet_distance_x: 1.0
+feet_distance_y: 0.4
+feet_distance_z: 1.0
+feet_height: 0.6
+feet_pelvis_height: 0.4
+kappa: 30
+max_simulation_steps: 400
+model: cassie
+pelvis_height:
+- 0.9
+- 1.2
+r: 1.0
+r_alternate: 1.0
+r_biped: 0.5
+r_cmd: 1.0
+r_smooth: 0.3
+r_symmetric: 1.0
+render_mode: rgb_array
+reset_noise_scale: 0.001
+steps_per_cycle: 30
+terminate_when_unhealthy: true
+x_cmd_vel: 1.0
+y_cmd_vel: 0
+z_cmd_vel: 0

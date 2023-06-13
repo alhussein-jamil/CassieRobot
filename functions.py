@@ -19,10 +19,10 @@ def p_between_von_mises(a, b, kappa, x):
 def action_dist(a, b):
     diff = a - b
 
-    diff = torch.div(diff, c.act_ranges[:, 1] - c.act_ranges[:, 0])
-    diff = torch.sum(torch.square(diff), axis=1)
+    diff /=  c.act_ranges[:, 1] - c.act_ranges[:, 0]
+    diff = np.sum(np.square(diff), axis=1)
 
-    return torch.sqrt(diff)
+    return np.sqrt(diff)
 
 
 def normalize(name, value):

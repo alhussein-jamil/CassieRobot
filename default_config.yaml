@@ -24,15 +24,15 @@ training:
       render_mode: rgb_array
       reset_noise_scale: 0.001
       bias: 1
-      r_biped: 1.0
-      r_cmd : 0.6
+      r_biped: 0.5
+      r_cmd : 1.0
       r_smooth: 0.3
-      r_alternate: 0.2
-      r_symmetric: 0.0
-    render_env: true
+      r_alternate: 1.0
+      r_symmetric: 1.0
+    render_env: false
 
   rollouts: 
-    num_rollout_workers: 20
+    num_rollout_workers: 19
     num_envs_per_worker: 1
     rollout_fragment_length: auto
     batch_mode: truncate_episodes
@@ -47,10 +47,10 @@ training:
   training:
     gamma: 0.95
     lr: 0.0005
-    train_batch_size: 4000
+    train_batch_size: 10000
     model:
 
-      fcnet_hiddens: [256, 256]
+      fcnet_hiddens: [128, 128]
       fcnet_activation: swish
       vf_share_layers: false
       free_log_std: true
@@ -65,7 +65,7 @@ training:
 
     kl_coeff: 0.2
 
-    sgd_minibatch_size: 1000
+    sgd_minibatch_size: 2000
 
     num_sgd_iter: 5
 
@@ -94,7 +94,7 @@ training:
 run:
   sim_fps: 30
   sim_freq: 25
-  chkpt_freq: 50
+  chkpt_freq: 10
   epochs: 5000
   hyper_par_iter: 1
   n_particles: 1

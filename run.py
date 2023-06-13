@@ -133,8 +133,9 @@ if __name__ == "__main__":
 
     checkpoint_frequency = config["run"]["chkpt_freq"]
     simulation_frequency = config["run"]["sim_freq"]
-
+    from copy import deepcopy
     def train_and_evaluate( config, hyper_configs=  [None]):
+        
         global max_test_i, trainer
         # Create folder for test
         test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
@@ -142,12 +143,13 @@ if __name__ == "__main__":
 
         metrics = []
         for i,hyper_config in enumerate(hyper_configs):
-
-            training_config = config["training"]
             
+            training_config = config["training"]
+            temp_config = deepcopy(training_config)
             if hyper_config is not None:
                 f.fill_dict_with_list(hyper_config, training_config["environment"]["env_config"])
             print("Training config ", training_config["environment"]["env_config"])
+            checkpoint_path = "Does NOT exist"
             trainer = (
                 Trainer()
                 .environment(**training_config.get("environment", {}))
@@ -165,11 +167,29 @@ if __name__ == "__main__":
                 .resources(**training_config.get("resources", {}))
                 .evaluation(**training_config.get("evaluation", {}))
                 .callbacks(callbacks_class=MyCallbacks)
-            )
+            ).build()
+
+            temp_config["rollouts"]["num_rollout_workers"] = 1
+            temp =  (
+                    Trainer()
+                    .environment(**temp_config.get("environment", {}))
+                    .rollouts(**temp_config.get("rollouts", {}))
+                    .checkpointing(**temp_config.get("checkpointing", {}))
+                    .debugging(
+                        logger_creator=custom_log_creator(
+                            args.logdir, "cassie_PPO_config_{}_".format(i)
+                        )
+                        if args.logdir is not None
+                        else None
+                    )
+                    .training(**temp_config.get("training", {}))
+                    .framework(**temp_config.get("framework", {}))
+                    .resources(**temp_config.get("resources", {}))
+                    .evaluation(**temp_config.get("evaluation", {}))
+                    .callbacks(callbacks_class=MyCallbacks)
+                ).build()
 
 
-            trainer = trainer.build()
-            
             # Build trainer
             if not clean_run:
                 if load:
@@ -190,7 +210,7 @@ if __name__ == "__main__":
                 trainer.iteration if hasattr(trainer, "iteration") else 0,
                 config["run"].get("epochs", 1000),
             ):
-                c.global_trainer = trainer
+
                 # Train for one iteration
                 result = trainer.train()
                 print(
@@ -205,7 +225,14 @@ if __name__ == "__main__":
 
                 # Save model every 10 epochs
                 if epoch % checkpoint_frequency == 0:
+                    #delete last checkpoint if exists 
+                    if os.path.exists(checkpoint_path):
+                        os.remove(checkpoint_path)
                     checkpoint_path = trainer.save()
+                    
+                    temp.restore(checkpoint_path)
+                    c.global_trainer = temp 
+                    
                     print("Checkpoint saved at", checkpoint_path)
 
                 # Run a test every 20 epochs
