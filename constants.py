@@ -125,10 +125,40 @@ sensor_ranges = {
     "pelvis-angular-velocity": (-34.9, 34.9)
 }
 
+# sensor_ranges = {
+#     "left-hip-roll-input": (-12.0, 16.0),
+#     "left-hip-yaw-input": (-16.0, 17.0),
+#     "left-hip-pitch-input": (-20, 28),
+#     "left-knee-input": (-5, -37),
+#     "left-foot-input": (-140, -30),
+#     "left-shin-output": (-20, 20),
+#     "left-tarsus-output": (50, 170),
+#     "left-foot-output": (-140, -30),
+#     "right-hip-roll-input": (-22.5, 15),
+#     "right-hip-yaw-input": (-22.5, 22.5),
+#     "right-hip-pitch-input": (-50, 80),
+#     "right-knee-input": (-164, -37),
+#     "right-foot-input": (-140, -30),
+#     "right-shin-output": (-20, 20),
+#     "right-tarsus-output": (50, 170),
+#     "right-foot-output": (-140, -30),
+#     "pelvis-orientation": (0, 1),
+#     "pelvis-angular-velocity": (-34.9, 34.9)
+# }
+
+sensor_ranges =np.array([[ -12.,  -16.,  -20.,  -51., -136.,   -1.,    0.,   -3.,  -16.,
+         -17.,  -19.,  -51., -133.,   -1.,    0.,   -3.,   -1.,   -1.,
+          -1.,   -1.,  -17.,  -29.,  -16., -157., -157., -157.,   -1.,
+          -1.,   -1.],
+       [  16.,   17.,   28.,    0.,    0.,    1.,    4.,    0.,   13.,
+          17.,   29.,    0.,    0.,    1.,    4.,    0.,    1.,    1.,
+           1.,    1.,   16.,   26.,   18.,  157.,  157.,  157.,    1.,
+           1.,    1.]] ) 
+
 # transform the actuator_ranges to a 2d tensor
 
 
-act_ranges = torch.tensor(list(actuator_ranges.values()))
+act_ranges = np.array(list(actuator_ranges.values()))
 
 pos_index = [1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 20, 21, 22, 23, 28, 29, 30, 34]
 
