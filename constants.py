@@ -32,17 +32,7 @@ sensor_names = [
 # The constants are defined here
 THETA_LEFT = 0.5
 THETA_RIGHT = 0
-# MAX_STEPS = 400
-# OMEGA = 4.5
-# STEPS_IN_CYCLE = 30
-# a_swing = 0
-# b_swing = 0.5
-# a_stance = 0.5
-# b_stance = 1
-# KAPPA = 25
-# X_VEL = 1.5
-# Y_VEL = 0
-# Z_VEL = 0
+
 FORWARD_QUARTERNIONS = np.array([1, 0, 0, 0])
 
 c_swing_frc = -1
@@ -70,7 +60,7 @@ DEFAULT_CAMERA_CONFIG = {
     "lookat": np.array((0.0, 0.0, 0.85)),  # adjust the height to match Cassie's height
     "elevation": -20.0,
 }
-global_trainer = None 
+
 actuator_ranges = {
     "left-hip-roll": [-4.5, 4.5],
     "left-hip-yaw": [-4.5, 4.5],
@@ -95,7 +85,7 @@ exponential_bornes = {
     "q_torque": [0, 30],
     "q_pelvis_acc": [0, 100],
     "q_marche_distance": [-1.0, 1.0],
-    "q_feet_orientation": [0, np.pi / 4.0],
+    "q_feet_orientation": [-np.pi, np.pi],
     "q_symmetric" : [0, 1.2],
 }
 multiplicators = {}
@@ -125,26 +115,6 @@ sensor_ranges = {
     "pelvis-angular-velocity": (-34.9, 34.9)
 }
 
-# sensor_ranges = {
-#     "left-hip-roll-input": (-12.0, 16.0),
-#     "left-hip-yaw-input": (-16.0, 17.0),
-#     "left-hip-pitch-input": (-20, 28),
-#     "left-knee-input": (-5, -37),
-#     "left-foot-input": (-140, -30),
-#     "left-shin-output": (-20, 20),
-#     "left-tarsus-output": (50, 170),
-#     "left-foot-output": (-140, -30),
-#     "right-hip-roll-input": (-22.5, 15),
-#     "right-hip-yaw-input": (-22.5, 22.5),
-#     "right-hip-pitch-input": (-50, 80),
-#     "right-knee-input": (-164, -37),
-#     "right-foot-input": (-140, -30),
-#     "right-shin-output": (-20, 20),
-#     "right-tarsus-output": (50, 170),
-#     "right-foot-output": (-140, -30),
-#     "pelvis-orientation": (0, 1),
-#     "pelvis-angular-velocity": (-34.9, 34.9)
-# }
 
 sensor_ranges =np.array([[ -12.,  -16.,  -20.,  -51., -136.,   -1.,    0.,   -3.,  -16.,
          -17.,  -19.,  -51., -133.,   -1.,    0.,   -3.,   -1.,   -1.,
