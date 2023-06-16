@@ -14,8 +14,6 @@ from ray.tune.logger import UnifiedLogger
 from ray.tune.registry import register_env
 import functions as f
 from pyswarms.single.global_best import GlobalBestPSO
-import constants as c
-# import wandb
 from cassie import CassieEnv, MyCallbacks
 from loader import Loader
 
@@ -55,6 +53,7 @@ if __name__ == "__main__":
         log_dir = args.logdir
     else:
         log_dir = Path.home() / "ray_results"
+        log_dir = Path.cwd() / "ray_results"
     if args.config is not None:
         config = args.config
 
@@ -68,19 +67,19 @@ if __name__ == "__main__":
     if clean_run:
         log.info("Running clean run")
     else:
-        runs = Path.glob(log_dir, "PPO_cassie-v0*")
+        runs = Path.glob(log_dir, "cassie_PPO_config*")
         load = False
         for run in list(runs)[::-1]:
-            print("Loading run", run)
+            log.info("Loading run", run)
             checkpoints = Path.glob(run, "checkpoint_*")
             for checkpoint in list(checkpoints)[::-1]:
-                print("Loading checkpoint", checkpoint)
+                log.info("Loading checkpoint", checkpoint)
                 load = True
                 break
             if load:
                 break
             else:
-                print("No checkpoint found here")
+                log.info("No checkpoint found here")
 
     if args.simdir is not None:
         sim_dir = args.simdir
@@ -96,6 +95,7 @@ if __name__ == "__main__":
     loader = Loader(logdir=log_dir, simdir=sim_dir)
 
     config = loader.load_config(config)
+    
     hyperparameter_ranges = {}
     
     for key, value in config["training"]["environment"]["env_config"].items():
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     from copy import deepcopy
     def train_and_evaluate( config, hyper_configs=  [None]):
         
-        global max_test_i, trainer
+        global max_test_i
         # Create folder for test
         test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
         os.makedirs(test_dir, exist_ok=True)
@@ -145,10 +145,10 @@ if __name__ == "__main__":
         for i,hyper_config in enumerate(hyper_configs):
             
             training_config = config["training"]
-            temp_config = deepcopy(training_config)
             if hyper_config is not None:
                 f.fill_dict_with_list(hyper_config, training_config["environment"]["env_config"])
             print("Training config ", training_config["environment"]["env_config"])
+
             checkpoint_path = "Does NOT exist"
             trainer = (
                 Trainer()
@@ -157,9 +157,9 @@ if __name__ == "__main__":
                 .checkpointing(**training_config.get("checkpointing", {}))
                 .debugging(
                     logger_creator=custom_log_creator(
-                        args.logdir, "cassie_PPO_config_{}_".format(i)
+                        log_dir, "cassie_PPO_config_{}_".format(i)
                     )
-                    if args.logdir is not None
+                    if log_dir is not None
                     else None
                 )
                 .training(**training_config.get("training", {}))
@@ -168,27 +168,6 @@ if __name__ == "__main__":
                 .evaluation(**training_config.get("evaluation", {}))
                 .callbacks(callbacks_class=MyCallbacks)
             ).build()
-
-            temp_config["rollouts"]["num_rollout_workers"] = 1
-            temp =  (
-                    Trainer()
-                    .environment(**temp_config.get("environment", {}))
-                    .rollouts(**temp_config.get("rollouts", {}))
-                    .checkpointing(**temp_config.get("checkpointing", {}))
-                    .debugging(
-                        logger_creator=custom_log_creator(
-                            args.logdir, "cassie_PPO_config_{}_".format(i)
-                        )
-                        if args.logdir is not None
-                        else None
-                    )
-                    .training(**temp_config.get("training", {}))
-                    .framework(**temp_config.get("framework", {}))
-                    .resources(**temp_config.get("resources", {}))
-                    .evaluation(**temp_config.get("evaluation", {}))
-                    .callbacks(callbacks_class=MyCallbacks)
-                ).build()
-
 
             # Build trainer
             if not clean_run:
@@ -210,7 +189,6 @@ if __name__ == "__main__":
                 trainer.iteration if hasattr(trainer, "iteration") else 0,
                 config["run"].get("epochs", 1000),
             ):
-
                 # Train for one iteration
                 result = trainer.train()
                 print(
@@ -225,14 +203,7 @@ if __name__ == "__main__":
 
                 # Save model every 10 epochs
                 if epoch % checkpoint_frequency == 0:
-                    #delete last checkpoint if exists 
-                    if os.path.exists(checkpoint_path):
-                        os.remove(checkpoint_path)
                     checkpoint_path = trainer.save()
-                    
-                    temp.restore(checkpoint_path)
-                    c.global_trainer = temp 
-                    
                     print("Checkpoint saved at", checkpoint_path)
 
                 # Run a test every 20 epochs
@@ -272,13 +243,13 @@ if __name__ == "__main__":
         print("Test saved at", video_path)
 
 
-if args.swarm:
-    # Define PSO options
-    pso_options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-    min_bounds, max_bounds = [x[0] for x in hyperparameter_bounds.values()], [x[1] for x in hyperparameter_bounds.values()]
-    optimizer = GlobalBestPSO(n_particles=config["run"]["n_particles"], dimensions=len(hyperparameter_bounds), bounds=(min_bounds,max_bounds), options=pso_options)
-    best_hyperparameters, best_fitness = optimizer.optimize(lambda hyperconfigs: train_and_evaluate(config,  hyper_configs=hyperconfigs), iters=config["run"]["hyper_par_iter"])
-    print("Best hyperparameters", best_hyperparameters)
-    print("Best fitness", best_fitness)
-else: 
-    train_and_evaluate(config)
+    if args.swarm:
+        # Define PSO options
+        pso_options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+        min_bounds, max_bounds = [x[0] for x in hyperparameter_bounds.values()], [x[1] for x in hyperparameter_bounds.values()]
+        optimizer = GlobalBestPSO(n_particles=config["run"]["n_particles"], dimensions=len(hyperparameter_bounds), bounds=(min_bounds,max_bounds), options=pso_options)
+        best_hyperparameters, best_fitness = optimizer.optimize(lambda hyperconfigs: train_and_evaluate(config,  hyper_configs=hyperconfigs), iters=config["run"]["hyper_par_iter"])
+        print("Best hyperparameters", best_hyperparameters)
+        print("Best fitness", best_fitness)
+    else: 
+        train_and_evaluate(config)

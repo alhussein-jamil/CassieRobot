@@ -45,7 +45,6 @@ DEFAULT_CONFIG = {
     "r_cmd" : 3.0,
     "r_smooth": 1.0,
     "r_alternate": 4.0,
-    "r_symmetric": 6.0
 }
 
 
@@ -72,7 +71,7 @@ class CassieEnv(MujocoEnv):
         self.steps_per_cycle = env_config.get("steps_per_cycle", DEFAULT_CONFIG["steps_per_cycle"])
         self.r = env_config.get("r", DEFAULT_CONFIG["r"])
         self.a_swing = 0.0
-        self.a_stance = self.r / (self.r + 1)
+        self.a_stance = self.r
         self.b_swing = self.a_stance
         self.b_stance = 1.0
         self.kappa = env_config.get("kappa", DEFAULT_CONFIG["kappa"])
@@ -95,16 +94,17 @@ class CassieEnv(MujocoEnv):
         self.phi, self.steps, self.gamma_modified = 0, 0, 1
         self.previous_action = torch.zeros(10)
         self.gamma = env_config.get("gamma", 0.99)
+        self.trainer = env_config.get("trainer", None)
 
-        # self.observation_space = Box(
-        #     low=-np.inf,
-        #     high=np.inf,
-        #     shape=(31,),
-        # )
         self.observation_space = Box(
             low=-1.2,
             high=1.2,
             shape=(31,),
+        )
+        self.reward_space = Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(5,),
         )
         MujocoEnv.__init__(
             self,
@@ -190,24 +190,7 @@ class CassieEnv(MujocoEnv):
 
         sensor_data = self.data.sensordata
         sensor_data = (sensor_data - c.sensor_ranges[0, :]) / ( c.sensor_ranges[1,:] - c.sensor_ranges[0,:])
-        # self.obs = np.array([*self.data.sensordata, *p])
-        # return  self.obs
-        # temp = []
 
-        # # normalize the sensor data using sensor_ranges
-        # i = 0
-        # for key in c.sensor_ranges.keys():
-        #     for x in self.data.sensor(key).data:
-        #         temp.append(
-        #             (x - c.obs_ranges[0][i]) / (c.obs_ranges[1][i] - c.obs_ranges[0][i])
-        #         )
-        #         # temp.append(x)
-        #         i += 1
-        # self.obs = np.clip(
-        #     np.concatenate([temp, p]),
-        #     self.observation_space.low,
-        #     self.observation_space.high,
-        # )
         # getting the read positions of the sensors and concatenate the lists
         self.obs = np.array([*sensor_data, *p])
         return self.obs
@@ -235,7 +218,7 @@ class CassieEnv(MujocoEnv):
         return symmetric_obs
 
     # computes the reward
-    def compute_reward(self, action, symmetric_action):
+    def compute_reward(self, action):#, symmetric_action):
         # Extract some proxies
         qpos = self.data.qpos.flat.copy()
         qvel = self.data.qvel.flat.copy()
@@ -368,85 +351,6 @@ class CassieEnv(MujocoEnv):
                 self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
             )
         )
-        r_symmetric = 1 - np.exp(
-            c.multiplicators["q_symmetric"]
-            * float(
-                f.action_dist(
-                    action.reshape(1, -1),
-                    symmetric_action.reshape(1, -1),
-                )
-            )
-        )
-
-        # self.exponents = {
-        #     "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel]))
-        #     ** 2,
-        #     "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel]))
-        #     ** 2,
-        #     "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel]))
-        #     ** 2,
-        #     "q_left_frc": np.linalg.norm(contact_force_left_foot) ** 2,
-        #     "q_right_frc": np.linalg.norm(contact_force_right_foot) ** 2,
-        #     "q_left_spd": np.linalg.norm(qvel[12]) ** 2,
-        #     "q_right_spd": np.linalg.norm(qvel[19]) ** 2,
-        #     "q_action_diff": float(
-        #         f.action_dist(
-        #             torch.tensor(action).reshape(1, -1),
-        #             torch.tensor(self.previous_action).reshape(1, -1),
-        #         )
-        #     ),
-        #     "q_orientation": (
-        #         1
-        #         - (
-        #             (self.data.sensor("pelvis-orientation").data.T)
-        #             @ (c.FORWARD_QUARTERNIONS)
-        #         )
-        #         ** 2
-        #     ),
-        #     "q_torque": np.linalg.norm(action),
-        #     "q_pelvis_acc": np.linalg.norm(
-        #         self.data.sensor("pelvis-angular-velocity").data
-        #     )
-        #     + np.linalg.norm(
-        #         self.data.sensor("pelvis-linear-acceleration").data
-        #         - self.model.opt.gravity.data
-        #     ),
-        #     "feet distance": np.linalg.norm(
-        #         self.data.xpos[c.LEFT_FOOT][0] - self.data.xpos[c.RIGHT_FOOT][0]
-        #     ),
-        #     "pelvis_height ": self.data.xpos[c.PELVIS, 2],
-        #     "oriantation_right_foot": np.abs(
-        #         self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
-        #     ),
-        #     "oriantation_left_foot": np.abs(
-        #         self.data.sensordata[c.LEFT_FOOT_JOINT] - c.target_feet_orientation
-        #     ),
-        #     "action_diff": float(
-        #             f.action_dist(
-        #                 torch.tensor(action).reshape(1, -1),
-        #                 torch.tensor(symmetric_action).reshape(1, -1),
-        #             )
-        #         ) if symmetric_action is not None else 0.0,
-        # }
-        # used_quantities = {
-        #     "q_vx": q_vx,
-        #     "q_vy": q_vy,
-        #     "q_vz": q_vz,
-        #     "q_left_frc": q_left_frc,
-        #     "q_right_frc": q_right_frc,
-        #     "q_left_spd": q_left_spd,
-        #     "q_right_spd": q_right_spd,
-        #     "q_action_diff": q_action_diff,
-        #     "q_orientation": q_orientation,
-        #     "q_torque": q_torque,
-        #     "q_pelvis_acc": q_pelvis_acc,
-        #     "q_phase_left": q_phase_left,
-        #     "q_phase_right": q_phase_right,
-        #     "q_feet_orientation_left": q_feet_orientation_left,
-        #     "q_feet_orientation_right": q_feet_orientation_right,
-        # }
-
-        # self.used_quantities = used_quantities
 
         def i_swing_frc(phi):
             index = round(phi*self.steps_per_cycle) % self.steps_per_cycle
@@ -491,7 +395,7 @@ class CassieEnv(MujocoEnv):
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
             "r_alternate": r_alternate,
-            "r_symmetric": r_symmetric,
+            # "r_symmetric": r_symmetric,
         }
         reward = self.reward_coeffs["bias"] + sum([rewards[k]*self.reward_coeffs[k] for k in rewards.keys()])/sum(self.reward_coeffs.values())
     
@@ -527,18 +431,6 @@ class CassieEnv(MujocoEnv):
 
     # step in time
     def step(self, action):
-        # clip the action to the ranges in action_space (done inside the config
-        # action = np.clip(action, self.action_space.low, self.action_space.high)
-
-        estimated_action = action
-
-        if c.global_trainer is not None:
-            filterfn = c.global_trainer.workers.local_worker().filters["default_policy"]
-            symmetric_obs = self._get_symmetric_obs()
-            filtered_obs = filterfn(symmetric_obs)
-            symmetric_action = c.global_trainer.compute_single_action(filtered_obs)
-            estimated_action = np.concatenate([symmetric_action[5:], symmetric_action[:5]])     
-
 
         self.do_simulation(action, self.frame_skip)
 
@@ -546,7 +438,7 @@ class CassieEnv(MujocoEnv):
 
         observation = self._get_obs()
 
-        reward, rewards, metrics = self.compute_reward(action, estimated_action)
+        reward, rewards, metrics = self.compute_reward(action)#, estimated_action)
 
         terminated = self.terminated
 
@@ -569,15 +461,15 @@ class CassieEnv(MujocoEnv):
         info["other_metrics"] = metrics
 
         return observation, reward, terminated, False, info
-
+        #return observation, torch.tensor(list(rewards.values())), terminated, False, info
     # resets the simulation
     def reset_model(self, seed=0):
         m.mj_inverse(self.model, self.data)
         noise_low = -self._reset_noise_scale
         noise_high = self._reset_noise_scale
         self.previous_action = np.zeros(10)
-        self.phi = np.random.randint(0, self.steps_per_cycle) / self.steps_per_cycle
-        self.phi = 0
+        # self.phi = np.random.randint(0, self.steps_per_cycle) / self.steps_per_cycle
+        self.phi = np.random.choice([0, 0.5])
         self.steps = 0
         self.contact = False
         # self.rewards = {"R_biped": 0, "R_cmd": 0, "R_smooth": 0}
