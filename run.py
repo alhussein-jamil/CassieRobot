@@ -9,18 +9,18 @@ import mediapy as media
 import ray
 import torch
 import yaml
+from pyswarms.single.global_best import GlobalBestPSO
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.logger import UnifiedLogger
 from ray.tune.registry import register_env
+
 import functions as f
-from pyswarms.single.global_best import GlobalBestPSO
 from cassie import CassieEnv, MyCallbacks
 from loader import Loader
 
 torch.cuda.empty_cache()
 
 log.basicConfig(level=log.DEBUG)
-
 
 
 def custom_log_creator(custom_path, custom_str):
@@ -52,67 +52,69 @@ if __name__ == "__main__":
     if args.logdir is not None:
         log_dir = args.logdir
     else:
-        log_dir = Path.home() / "ray_results"
         log_dir = Path.cwd() / "ray_results"
     if args.config is not None:
         config = args.config
 
     else:
         config = "default_config.yaml"
-    log.info("Config file: {}".format(config))
+    print("Config file: {}".format(config))
     ray.init(ignore_reinit_error=True, num_gpus=1)
 
     clean_run = args.cleanrun
 
     if clean_run:
-        log.info("Running clean run")
+        print("Running clean run")
     else:
         runs = Path.glob(log_dir, "cassie_PPO_config*")
         load = False
         for run in list(runs)[::-1]:
-            log.info("Loading run", run)
+            print("Loading run", run)
             checkpoints = Path.glob(run, "checkpoint_*")
             for checkpoint in list(checkpoints)[::-1]:
-                log.info("Loading checkpoint", checkpoint)
+                print("Loading checkpoint", checkpoint)
                 load = True
                 break
             if load:
                 break
             else:
-                log.info("No checkpoint found here")
+                print("No checkpoint found here")
 
     if args.simdir is not None:
         sim_dir = args.simdir
     else:
         sim_dir = "./sims/"
-    log.info("Simulation directory: {}".format(sim_dir))
+    print("Simulation directory: {}".format(sim_dir))
 
-    log.info("Log directory: {}".format(log_dir))
-    log.info(os.path.exists(log_dir))
+    print("Log directory: {}".format(log_dir))
+    print(os.path.exists(log_dir))
 
     register_env("cassie-v0", lambda config: CassieEnv(config))
 
     loader = Loader(logdir=log_dir, simdir=sim_dir)
 
     config = loader.load_config(config)
-    
+
     hyperparameter_ranges = {}
-    
+
     for key, value in config["training"]["environment"]["env_config"].items():
         if isinstance(value, list):
-
-            hyperparameter_ranges[key] = [[
-
-                value[0] - (value[1] - value[0]) / 4,
-                value[0] + (value[1] - value[0]) / 4]
-            ,
-            [
-                value[1] - (value[1] - value[0]) / 4,
-                value[1] + (value[1] - value[0]) / 4
-            ]
+            hyperparameter_ranges[key] = [
+                [
+                    value[0] - (value[1] - value[0]) / 4,
+                    value[0] + (value[1] - value[0]) / 4,
+                ],
+                [
+                    value[1] - (value[1] - value[0]) / 4,
+                    value[1] + (value[1] - value[0]) / 4,
+                ],
             ]
         elif isinstance(value, float):
-            hyperparameter_ranges[key] = [value - value / 4, value + value / 4] if value >= 0 else [value + value / 4, value - value / 4]
+            hyperparameter_ranges[key] = (
+                [value - value / 4, value + value / 4]
+                if value >= 0
+                else [value + value / 4, value - value / 4]
+            )
     print("Ranges", hyperparameter_ranges)
     hyperparameter_bounds = f.flatten_dict(hyperparameter_ranges)
     # wandb.init(project="Cassie", config=config["training"]["environment"]["env_config"])
@@ -129,24 +131,35 @@ if __name__ == "__main__":
 
     # Define video codec and framerate
     fps = config["run"]["sim_fps"]
-    print("fps", fps)
+    print("FPS: {}".format(fps))
+    config["run"]["chkpt_freq"] = int(
+        1500000 / config["training"]["training"]["train_batch_size"]
+    )
+    config["run"]["sim_freq"] = int(
+        1500000 / config["training"]["training"]["train_batch_size"]
+    )
 
     checkpoint_frequency = config["run"]["chkpt_freq"]
     simulation_frequency = config["run"]["sim_freq"]
-    from copy import deepcopy
-    def train_and_evaluate( config, hyper_configs=  [None]):
-        
+
+    print("Checkpoint frequency: {}".format(checkpoint_frequency))
+    print("Simulation frequency: {}".format(simulation_frequency))
+
+
+    def train_and_evaluate(config, hyper_configs=[None]):
         global max_test_i
         # Create folder for test
         test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
         os.makedirs(test_dir, exist_ok=True)
 
         metrics = []
-        for i,hyper_config in enumerate(hyper_configs):
-            
+        for i, hyper_config in enumerate(hyper_configs):
             training_config = config["training"]
+
             if hyper_config is not None:
-                f.fill_dict_with_list(hyper_config, training_config["environment"]["env_config"])
+                f.fill_dict_with_list(
+                    hyper_config, training_config["environment"]["env_config"]
+                )
             print("Training config ", training_config["environment"]["env_config"])
 
             checkpoint_path = "Does NOT exist"
@@ -175,7 +188,7 @@ if __name__ == "__main__":
                     trainer.restore(checkpoint)
 
             print("Creating test environment")
-            env = CassieEnv(config["training"]["environment"]["env_config"])
+            env = CassieEnv({**config["training"]["environment"]["env_config"], **{"is_training": False}})
             env.render_mode = "rgb_array"
 
             os.mkdir(os.path.join(test_dir, "config_{}".format(i)))
@@ -198,7 +211,8 @@ if __name__ == "__main__":
                         result["custom_metrics"]["custom_metrics_distance_mean"],
                     )
                 )
-                if(result["episode_len_mean"] < 4):
+
+                if result["episode_len_mean"] < 4:
                     break
 
                 # Save model every 10 epochs
@@ -208,14 +222,13 @@ if __name__ == "__main__":
 
                 # Run a test every 20 epochs
                 if epoch % simulation_frequency == 0:
-                    evaluate(trainer, env, epoch, i,test_dir)
+                    evaluate(trainer, env, epoch, i, test_dir)
 
             max_test_i += 1
             metrics.append(result["episode_reward_mean"])
-        return  metrics
+        return metrics
 
-    def evaluate(trainer, env, epoch, i,test_dir):
-
+    def evaluate(trainer, env, epoch, i, test_dir):
         # Make a steps counter
         steps = 0
 
@@ -242,14 +255,23 @@ if __name__ == "__main__":
         media.write_video(video_path, frames, fps=fps)
         print("Test saved at", video_path)
 
-
     if args.swarm:
         # Define PSO options
-        pso_options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-        min_bounds, max_bounds = [x[0] for x in hyperparameter_bounds.values()], [x[1] for x in hyperparameter_bounds.values()]
-        optimizer = GlobalBestPSO(n_particles=config["run"]["n_particles"], dimensions=len(hyperparameter_bounds), bounds=(min_bounds,max_bounds), options=pso_options)
-        best_hyperparameters, best_fitness = optimizer.optimize(lambda hyperconfigs: train_and_evaluate(config,  hyper_configs=hyperconfigs), iters=config["run"]["hyper_par_iter"])
+        pso_options = {"c1": 0.5, "c2": 0.3, "w": 0.9}
+        min_bounds, max_bounds = [x[0] for x in hyperparameter_bounds.values()], [
+            x[1] for x in hyperparameter_bounds.values()
+        ]
+        optimizer = GlobalBestPSO(
+            n_particles=config["run"]["n_particles"],
+            dimensions=len(hyperparameter_bounds),
+            bounds=(min_bounds, max_bounds),
+            options=pso_options,
+        )
+        best_hyperparameters, best_fitness = optimizer.optimize(
+            lambda hyperconfigs: train_and_evaluate(config, hyper_configs=hyperconfigs),
+            iters=config["run"]["hyper_par_iter"],
+        )
         print("Best hyperparameters", best_hyperparameters)
         print("Best fitness", best_fitness)
-    else: 
+    else:
         train_and_evaluate(config)

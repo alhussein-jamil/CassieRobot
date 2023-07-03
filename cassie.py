@@ -34,17 +34,19 @@ DEFAULT_CONFIG = {
     "pelvis_height": [0.6, 1.5],
     "feet_distance_x": 1.0,
     "feet_distance_y": 0.5,
-    "feet_distance_z":  0.5,
+    "feet_distance_z": 0.5,
     "feet_pelvis_height": 0.3,
     "feet_height": 0.6,
     "model": "cassie",
     "render_mode": "rgb_array",
-    "reset_noise_scale" : 0.01,
+    "reset_noise_scale": 0.01,
     "bias": 1.0,
     "r_biped": 4.0,
-    "r_cmd" : 3.0,
+    "r_cmd": 3.0,
     "r_smooth": 1.0,
     "r_alternate": 4.0,
+    "r_symmetric": 2.0,
+    "is_training": True,
 }
 
 
@@ -60,15 +62,36 @@ class CassieEnv(MujocoEnv):
 
     def __init__(self, env_config):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
-        self._terminate_when_unhealthy = env_config.get("terminate_when_unhealthy", DEFAULT_CONFIG["terminate_when_unhealthy"])
-        self._healthy_pelvis_z_range = env_config.get("pelvis_height", DEFAULT_CONFIG["pelvis_height"])
-        self._healthy_feet_distance_x = env_config.get("feet_distance_x", DEFAULT_CONFIG["feet_distance_x"])
-        self._healthy_feet_distance_y = env_config.get("feet_distance_y", DEFAULT_CONFIG["feet_distance_y"])
-        self._healthy_feet_distance_z = env_config.get("feet_distance_z", DEFAULT_CONFIG["feet_distance_z"])
-        self._healthy_dis_to_pelvis = env_config.get("feet_pelvis_height", DEFAULT_CONFIG["feet_pelvis_height"])
-        self._healthy_feet_height = env_config.get("feet_height", DEFAULT_CONFIG["feet_height"])
-        self._max_steps = env_config.get("max_simulation_steps", DEFAULT_CONFIG["max_simulation_steps"])
-        self.steps_per_cycle = env_config.get("steps_per_cycle", DEFAULT_CONFIG["steps_per_cycle"])
+        self._terminate_when_unhealthy = env_config.get(
+            "terminate_when_unhealthy", DEFAULT_CONFIG["terminate_when_unhealthy"]
+        )
+        self._healthy_pelvis_z_range = env_config.get(
+            "pelvis_height", DEFAULT_CONFIG["pelvis_height"]
+        )
+        self._healthy_feet_distance_x = env_config.get(
+            "feet_distance_x", DEFAULT_CONFIG["feet_distance_x"]
+        )
+        self._healthy_feet_distance_y = env_config.get(
+            "feet_distance_y", DEFAULT_CONFIG["feet_distance_y"]
+        )
+        self._healthy_feet_distance_z = env_config.get(
+            "feet_distance_z", DEFAULT_CONFIG["feet_distance_z"]
+        )
+        self._healthy_dis_to_pelvis = env_config.get(
+            "feet_pelvis_height", DEFAULT_CONFIG["feet_pelvis_height"]
+        )
+        self._healthy_feet_height = env_config.get(
+            "feet_height", DEFAULT_CONFIG["feet_height"]
+        )
+        self._max_steps = env_config.get(
+            "max_simulation_steps", DEFAULT_CONFIG["max_simulation_steps"]
+        )
+        self.steps_per_cycle = env_config.get(
+            "steps_per_cycle", DEFAULT_CONFIG["steps_per_cycle"]
+        )
+        
+        
+        self.training = env_config.get("is_training", DEFAULT_CONFIG["is_training"])
         self.r = env_config.get("r", DEFAULT_CONFIG["r"])
         self.a_swing = 0.0
         self.a_stance = self.r
@@ -82,23 +105,42 @@ class CassieEnv(MujocoEnv):
         self.action_space = gym.spaces.Box(
             np.float32(c.low_action), np.float32(c.high_action)
         )
-        phis = np.linspace(0, 1 , self.steps_per_cycle, endpoint=False)
-        self.von_mises_values_swing = [f.p_between_von_mises(a = self.a_swing,b = self.b_swing, kappa = self.kappa, x= p ) for p in phis]
-        self.von_mises_values_stance = [f.p_between_von_mises(a = self.a_stance,b = self.b_stance, kappa = self.kappa, x= p ) for p in phis]
-        #dictionary of keys containing r_
-        self.reward_coeffs = {k:v for k,v in env_config.items() if k.startswith('r_') or k.startswith('bias')}
-        if(len(self.reward_coeffs) == 0):
-            self.reward_coeffs = {k:v for k,v in DEFAULT_CONFIG.items() if k.startswith('r_') or k.startswith('bias')}
-        self._reset_noise_scale = env_config.get("reset_noise_scale", DEFAULT_CONFIG["reset_noise_scale"])
+        phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
+        self.von_mises_values_swing = [
+            f.p_between_von_mises(a=self.a_swing, b=self.b_swing, kappa=self.kappa, x=p)
+            for p in phis
+        ]
+        self.von_mises_values_stance = [
+            f.p_between_von_mises(
+                a=self.a_stance, b=self.b_stance, kappa=self.kappa, x=p
+            )
+            for p in phis
+        ]
 
-        self.phi, self.steps, self.gamma_modified = 0, 0, 1
+        # dictionary of keys containing r_
+        self.reward_coeffs = {
+            k: v
+            for k, v in env_config.items()
+            if k.startswith("r_") or k.startswith("bias")
+        }
+        if len(self.reward_coeffs) == 0:
+            self.reward_coeffs = {
+                k: v
+                for k, v in DEFAULT_CONFIG.items()
+                if k.startswith("r_") or k.startswith("bias")
+            }
+
+        self._reset_noise_scale = env_config.get(
+            "reset_noise_scale", DEFAULT_CONFIG["reset_noise_scale"]
+        )
+
+        self.phi, self.steps = 0, 0
+
         self.previous_action = torch.zeros(10)
-        self.gamma = env_config.get("gamma", 0.99)
-        self.trainer = env_config.get("trainer", None)
 
         self.observation_space = Box(
-            low=-1.2,
-            high=1.2,
+            low= - np.inf,
+            high= np.inf,
             shape=(31,),
         )
         self.reward_space = Box(
@@ -106,15 +148,25 @@ class CassieEnv(MujocoEnv):
             high=np.inf,
             shape=(5,),
         )
+        self.metadata["render_fps"] = 2000 // env_config.get("frame_skip", 40)
         MujocoEnv.__init__(
             self,
-            model_path = DIRPATH + "/cassie-mujoco-sim-master/model/{}.xml".format(self.model_file),
-            frame_skip = 20,
+            model_path=DIRPATH
+            + "/cassie-mujoco-sim-master/model/{}.xml".format(self.model_file),
+            frame_skip=env_config.get("frame_skip", 40),
             render_mode=env_config.get("render_mode", None),
             observation_space=self.observation_space,
         )
+        # self.action_space = Box(
+        #     low=np.array([*self.action_space.low, *self.action_space.low]),
+        #     high=np.array([*self.action_space.high, *self.action_space.high]),
+        # )
         self.render_mode = "rgb_array"
-
+        # if self.training:
+        #     self.symmetric_turn = True
+        # else:
+        #     self.symmetric_turn = False
+        self.symmetric_turn = np.random.choice([True, False])
     @property
     def healthy_reward(self):
         return (
@@ -133,21 +185,21 @@ class CassieEnv(MujocoEnv):
         if not self.steps <= self._max_steps:
             self.isdone = "Max steps reached"
 
-        if ( not 
-            abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
+        if (
+            not abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
             < self._healthy_feet_distance_x
         ):
             self.isdone = "Feet distance out of range along x-axis"
 
-        if ( not 
-            0.0
-            <  self.data.xpos[c.RIGHT_FOOT, 1] - self.data.xpos[c.LEFT_FOOT, 1] 
+        if (
+            not 0.0
+            < self.data.xpos[c.RIGHT_FOOT, 1] - self.data.xpos[c.LEFT_FOOT, 1]
             < self._healthy_feet_distance_y
         ):
             self.isdone = "Feet distance out of range along y-axis"
 
-        if ( not
-            abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2])
+        if (
+            not abs(self.data.xpos[c.LEFT_FOOT, 2] - self.data.xpos[c.RIGHT_FOOT, 2])
             < self._healthy_feet_distance_z
         ):
             self.isdone = "Feet distance out of range along z-axis"
@@ -156,6 +208,8 @@ class CassieEnv(MujocoEnv):
             self.contact
             and self.data.xpos[c.LEFT_FOOT, 2] >= self._healthy_feet_height
             and self.data.xpos[c.RIGHT_FOOT, 2] >= self._healthy_feet_height
+            and np.linalg.norm(self.contact_force_left_foot) < 0.1
+            and np.linalg.norm(self.contact_force_right_foot) < 0.1
         ):
             self.isdone = "Both Feet not on the ground"
 
@@ -170,7 +224,6 @@ class CassieEnv(MujocoEnv):
             < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.RIGHT_FOOT, 2]
         ):
             self.isdone = "Right foot too close to pelvis"
-
 
         return self.isdone == "not done"
 
@@ -189,33 +242,41 @@ class CassieEnv(MujocoEnv):
         )
 
         sensor_data = self.data.sensordata
-        sensor_data = (sensor_data - c.sensor_ranges[0, :]) / ( c.sensor_ranges[1,:] - c.sensor_ranges[0,:])
+        # sensor_data = 2.0 * (sensor_data - c.sensor_ranges[0, :]) / ( c.sensor_ranges[1,:] - c.sensor_ranges[0,:]) - 1.0
 
         # getting the read positions of the sensors and concatenate the lists
         self.obs = np.array([*sensor_data, *p])
+
         return self.obs
 
     def _get_symmetric_obs(self):
         obs = self._get_obs()
+
         symmetric_obs = deepcopy(obs)
+
         symmetric_obs[0:8] = obs[8:16]
         symmetric_obs[8:16] = obs[0:8]
+
         # pelvis quaternion symmetric along xoz
         symmetric_obs[17] = -obs[17]
-        symmetric_obs[19] = -obs[19]
+        symmetric_obs[18] = -obs[18]
 
-        # symmetric_obs[21] = -obs[21]
         # pelvis angular velocity symmetric along xoz
-        symmetric_obs[22]  = - obs[22]
-        # pelvis acceleration symmetric along xoz
-        symmetric_obs[25] = - obs[25]
-        # symmetric_obs[24] = -obs[24]
+        symmetric_obs[20] = -obs[20]
+        symmetric_obs[22] = -obs[22]
 
-        #switch sin and cos 
-        symmetric_obs[29] = obs[30]
-        symmetric_obs[30] = obs[29]
+        # pelvis acceleration symmetric along xoz
+        symmetric_obs[24] = -obs[24]
+        
+
+        # symmetry of the clock
+        symmetric_obs[29] = - obs[ 29 ]
+        symmetric_obs[30] = - obs[ 30 ]
 
         return symmetric_obs
+
+    def symmetric_action(self, action):
+        return np.array([*action[5:], *action[:5]])
 
     # computes the reward
     def compute_reward(self, action):#, symmetric_action):
@@ -228,27 +289,31 @@ class CassieEnv(MujocoEnv):
 
         # Feet Contact Forces
         contacts = [contact.geom2 for contact in self.data.contact]
-        contact_force_left_foot = np.zeros(6)
-        contact_force_right_foot = np.zeros(6)
+        self. contact_force_left_foot = np.zeros(6)
+
+        self.contact_force_right_foot = np.zeros(6)
         if c.left_foot_force_idx in contacts:
             m.mj_contactForce(
                 self.model,
                 self.data,
                 contacts.index(c.left_foot_force_idx),
-                contact_force_left_foot,
+                self.contact_force_left_foot,
             )
         if c.right_foot_force_idx in contacts:
             m.mj_contactForce(
                 self.model,
                 self.data,
                 contacts.index(c.right_foot_force_idx),
-                contact_force_right_foot,
+                self.contact_force_right_foot,
             )
 
         # check if cassie hit the ground with feet
         if (
-            self.data.xpos[c.LEFT_FOOT, 2] < 0.12
-            or self.data.xpos[c.RIGHT_FOOT, 2] < 0.12
+            # self.data.xpos[c.LEFT_FOOT, 2] < 0.12
+            # or self.data.xpos[c.RIGHT_FOOT, 2] < 0.12
+
+            np.linalg.norm(self.contact_force_left_foot) > 0.1
+            or np.linalg.norm(self.contact_force_right_foot) > 0.1
         ):
             self.contact = True
 
@@ -267,10 +332,10 @@ class CassieEnv(MujocoEnv):
         )
 
         q_left_frc = 1.0 - np.exp(
-            c.multiplicators["q_frc"] * np.linalg.norm(contact_force_left_foot) ** 2
+            c.multiplicators["q_frc"] * np.linalg.norm(self.contact_force_left_foot) ** 2
         )
         q_right_frc = 1.0 - np.exp(
-            c.multiplicators["q_frc"] * np.linalg.norm(contact_force_right_foot) ** 2
+            c.multiplicators["q_frc"] * np.linalg.norm(self.contact_force_right_foot) ** 2
         )
         q_left_spd = 1.0 - np.exp(
             c.multiplicators["q_spd"] * np.linalg.norm(qvel[12]) ** 2
@@ -305,6 +370,7 @@ class CassieEnv(MujocoEnv):
         )
 
         cycle_steps = float(self.steps % self.steps_per_cycle) / self.steps_per_cycle
+
         phase_left = (
             1 if 0.75 > cycle_steps >= 0.5 else -1 if 1 > cycle_steps >= 0.75 else 0
         )
@@ -351,17 +417,27 @@ class CassieEnv(MujocoEnv):
                 self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
             )
         )
+        # q_symmetric = 1 - np.exp(
+        #     c.multiplicators["q_symmetric"]
+        #     * float(
+        #         f.action_dist(
+        #             np.array(action).reshape(1, -1),
+        #             np.array(symmetric_action).reshape(1, -1),
+        #         )
+        #     )
+        # )
+        q_symmetric = 0.0
 
         def i_swing_frc(phi):
-            index = round(phi*self.steps_per_cycle) % self.steps_per_cycle
+            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
             return self.von_mises_values_swing[index]
 
         def i_stance_spd(phi):
-            index = round(phi*self.steps_per_cycle) % self.steps_per_cycle
+            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
             return self.von_mises_values_stance[index]
 
         def c_frc(phi):
-            return c.c_swing_frc * i_swing_frc(phi) 
+            return c.c_swing_frc * i_swing_frc(phi)
 
         def c_spd(phi):
             return c.c_stance_spd * i_stance_spd(phi)
@@ -389,16 +465,20 @@ class CassieEnv(MujocoEnv):
 
         r_biped /= 2.0
 
+        r_symmetric = -1.0 * q_symmetric
 
         rewards = {
             "r_biped": r_biped,
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
             "r_alternate": r_alternate,
-            # "r_symmetric": r_symmetric,
+            "r_symmetric": r_symmetric,
         }
-        reward = self.reward_coeffs["bias"] + sum([rewards[k]*self.reward_coeffs[k] for k in rewards.keys()])/sum(self.reward_coeffs.values())
-    
+
+        reward = self.reward_coeffs["bias"] + sum(
+            [rewards[k] * self.reward_coeffs[k] for k in rewards.keys()]
+        ) / sum(self.reward_coeffs.values())
+
         self.C = {
             "sin": self.obs[-2],
             "cos": self.obs[-1],
@@ -408,6 +488,45 @@ class CassieEnv(MujocoEnv):
             "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
             "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
             "C_spd_right": c_spd(self.phi + c.THETA_RIGHT),
+        }
+
+        self.exponents = {
+            "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel]))
+            ** 2,
+            "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel]))
+            ** 2,
+            "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel]))
+            ** 2,
+            "q_frc_left": np.linalg.norm(self.contact_force_left_foot) ** 2,
+            "q_frc_right": np.linalg.norm(self.contact_force_right_foot) ** 2,
+            "q_spd_left": np.linalg.norm(qvel[12]) ** 2,
+            "q_spd_right": np.linalg.norm(qvel[19]) ** 2,
+            "q_action": float(
+                f.action_dist(
+                    np.array(action).reshape(1, -1),
+                    np.array(self.previous_action).reshape(1, -1),
+                )
+            ),
+            "q_orientation_left": (
+                np.abs(
+                    self.data.sensordata[c.LEFT_FOOT_JOINT] - c.target_feet_orientation
+                )
+            ),
+            "q_orientation_right": (
+                np.abs(
+                    self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
+                )
+            ),
+            "q_torque": np.linalg.norm(action),
+            "q_pelvis_acc": np.linalg.norm(
+                self.data.sensor("pelvis-angular-velocity").data
+            ),
+            # "q_symmetric": float(
+            #     f.action_dist(
+            #         np.array(action).reshape(1, -1),
+            #         np.array(symmetric_action).reshape(1, -1),
+            #     )
+            # ),
         }
 
         metrics = {
@@ -432,23 +551,39 @@ class CassieEnv(MujocoEnv):
     # step in time
     def step(self, action):
 
-        self.do_simulation(action, self.frame_skip)
+        if self.symmetric_turn:
+            act = self.symmetric_action(action)
+            # act, sym_act = action[len(action) // 2 :], self.symmetric_action(
+            #     action[: len(action) // 2]
+            # )
+        else:
+            act = action
+            # act, sym_act = action[: len(action) // 2], self.symmetric_action(
+            #     action[len(action) // 2 :]
+            # )
+
+        self.do_simulation(act, self.frame_skip)
 
         m.mj_step(self.model, self.data)
 
-        observation = self._get_obs()
+        reward, rewards, metrics = self.compute_reward(act)#, sym_act)
+        
+        # if self.training:
+        # self.symmetric_turn = np.random.choice([True, False])
 
-        reward, rewards, metrics = self.compute_reward(action)#, estimated_action)
-
+        if self.symmetric_turn:
+            observation = self._get_symmetric_obs()
+        else:
+            observation = self._get_obs()
         terminated = self.terminated
 
         self.steps += 1
         self.phi += 1.0 / self.steps_per_cycle
         self.phi = self.phi % 1
 
-        self.previous_action = action
+        self.previous_action = act
+        # self.previous_symmetric_action = sym_act
 
-        self.gamma_modified *= self.gamma
         info = {}
         info["custom_rewards"] = rewards
         # info["custom_quantities"] = used_quantities
@@ -461,31 +596,39 @@ class CassieEnv(MujocoEnv):
         info["other_metrics"] = metrics
 
         return observation, reward, terminated, False, info
-        #return observation, torch.tensor(list(rewards.values())), terminated, False, info
+        # return observation, torch.tensor(list(rewards.values())), terminated, False, info
+
     # resets the simulation
     def reset_model(self, seed=0):
         m.mj_inverse(self.model, self.data)
-        noise_low = -self._reset_noise_scale
-        noise_high = self._reset_noise_scale
-        self.previous_action = np.zeros(10)
-        # self.phi = np.random.randint(0, self.steps_per_cycle) / self.steps_per_cycle
-        self.phi = np.random.choice([0, 0.5])
-        self.steps = 0
-        self.contact = False
-        # self.rewards = {"R_biped": 0, "R_cmd": 0, "R_smooth": 0}
 
-        self.gamma_modified = 1
+        noise_low = -self._reset_noise_scale
+
+        noise_high = self._reset_noise_scale
+
+        self.previous_action = np.zeros(10)
+
+        self.phi = np.random.randint(0, self.steps_per_cycle) / self.steps_per_cycle
+
+        self.steps = 0
+
+        self.contact = False
+        # if self.training:
+        #     self.symmetric_turn = True
+        # else: 
+        #     self.symmetric_turn = False
+        self.symmetric_turn = np.random.choice([True, False])
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq
         )
+
         qvel = self.init_qvel + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nv
         )
+
         self.set_state(qpos, qvel)
 
-        observation = self._get_obs()
-        return observation
-
+        return self._get_symmetric_obs() if self.symmetric_turn else self._get_obs()
 
 class MyCallbacks(DefaultCallbacks):
     def on_episode_step(
