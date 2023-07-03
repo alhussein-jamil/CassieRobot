@@ -6,29 +6,30 @@ training:
     disable_env_checking: true
     env_config: 
       # The constants are defined here
-      steps_per_cycle: 50
+      steps_per_cycle: 30
       r : 0.4
-      kappa: 25
-      x_cmd_vel: 2.0
+      kappa: 15
+      x_cmd_vel: 1.5
       y_cmd_vel: 0
       z_cmd_vel: 0
       terminate_when_unhealthy: true
       max_simulation_steps: 400
-      pelvis_height: [0.85,1.2]
-      feet_distance_x: 1.0
+      pelvis_height: [0.8,1.3]
+      feet_distance_x: 0.6
       feet_distance_y: 0.4
-      feet_distance_z: 1.0
-      feet_pelvis_height: 0.4
-      feet_height: 0.6
+      feet_distance_z: 0.5
+      feet_pelvis_height: 0.5
+      feet_height: 0.15
       model: cassie
+      frame_skip: 20
       render_mode: rgb_array
-      reset_noise_scale: 0.001
-      bias: 1
-      r_biped: 0.8
-      r_cmd : 1.0
-      r_smooth: 0.3
-      r_alternate: 0.8
-      # r_symmetric: 1.0
+      reset_noise_scale: 0.01
+      bias: 1.5
+      r_biped: 2.0
+      r_cmd : 1.5
+      r_smooth: 0.5
+      r_alternate: 0.0
+      r_symmetric: 0.0
     render_env: false
 
   rollouts: 
@@ -45,17 +46,17 @@ training:
   
 
   training:
-    gamma: 0.95
-    lr: 0.0005
+    gamma: 0.99
+    lr: 0.0001
     train_batch_size: 10000
     model:
 
-      fcnet_hiddens: [128, 128]
+      fcnet_hiddens: [256, 256]
       fcnet_activation: swish
       vf_share_layers: false
       free_log_std: true
     optimizer:
-      type: adam
+      type: rmsprop
     
     use_critic: true
 
@@ -93,8 +94,8 @@ training:
 
 run:
   sim_fps: 30
-  sim_freq: 40
-  chkpt_freq: 100
-  epochs: 5000
+  sim_freq: ???
+  chkpt_freq: ???
+  epochs: 50000
   hyper_par_iter: 1
   n_particles: 1
