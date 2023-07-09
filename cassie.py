@@ -47,6 +47,9 @@ DEFAULT_CONFIG = {
     "r_alternate": 4.0,
     "r_symmetric": 2.0,
     "is_training": True,
+    "max_roll": 0.2,
+    "max_pitch": 0.2,
+    "max_yaw": 0.2
 }
 
 
@@ -89,8 +92,9 @@ class CassieEnv(MujocoEnv):
         self.steps_per_cycle = env_config.get(
             "steps_per_cycle", DEFAULT_CONFIG["steps_per_cycle"]
         )
-        
-        
+        self.max_roll = env_config.get("max_roll", DEFAULT_CONFIG["max_roll"])
+        self.max_pitch = env_config.get("max_pitch", DEFAULT_CONFIG["max_pitch"])
+        self.max_yaw = env_config.get("max_yaw", DEFAULT_CONFIG["max_yaw"])
         self.training = env_config.get("is_training", DEFAULT_CONFIG["is_training"])
         self.r = env_config.get("r", DEFAULT_CONFIG["r"])
         self.a_swing = 0.0
@@ -106,16 +110,16 @@ class CassieEnv(MujocoEnv):
             np.float32(c.low_action), np.float32(c.high_action)
         )
         phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
-        self.von_mises_values_swing = [
+        self.von_mises_values_swing = np.array([
             f.p_between_von_mises(a=self.a_swing, b=self.b_swing, kappa=self.kappa, x=p)
             for p in phis
-        ]
-        self.von_mises_values_stance = [
+        ]) * 2.0 - 1.0
+        self.von_mises_values_stance =  np.array([
             f.p_between_von_mises(
                 a=self.a_stance, b=self.b_stance, kappa=self.kappa, x=p
             )
             for p in phis
-        ]
+        ] ) * 2.0 - 1.0
 
         # dictionary of keys containing r_
         self.reward_coeffs = {
@@ -174,23 +178,44 @@ class CassieEnv(MujocoEnv):
             * self._healthy_reward
         )
 
+
+    def quat_to_rpy(self,quaternion):
+        """Convert quaternion to roll, pitch, yaw angles."""
+        x, y, z, w = quaternion
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll = np.arctan2(t0, t1)
+
+        t2 = +2.0 * (w * y - z * x)
+        t2 = np.where(t2 > +1.0, +1.0, t2)
+        t2 = np.where(t2 < -1.0, -1.0, t2)
+        pitch = np.arcsin(t2)
+
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw = np.arctan2(t3, t4)
+
+        return np.array([roll, pitch, yaw])
+
     @property
     def is_healthy(self):
         min_z, max_z = self._healthy_pelvis_z_range
 
+        self.done_n = 0.0
+
         self.isdone = "not done"
         if self.contact and not min_z < self.data.xpos[c.PELVIS, 2] < max_z:
             self.isdone = "Pelvis not in range"
-
+            self.done_n = 1.0
         if not self.steps <= self._max_steps:
             self.isdone = "Max steps reached"
-
+            self.done_n = 2.0
         if (
             not abs(self.data.xpos[c.LEFT_FOOT, 0] - self.data.xpos[c.RIGHT_FOOT, 0])
             < self._healthy_feet_distance_x
         ):
             self.isdone = "Feet distance out of range along x-axis"
-
+            self.done_n = 3.0
         if (
             not 0.0
             < self.data.xpos[c.RIGHT_FOOT, 1] - self.data.xpos[c.LEFT_FOOT, 1]
@@ -203,27 +228,46 @@ class CassieEnv(MujocoEnv):
             < self._healthy_feet_distance_z
         ):
             self.isdone = "Feet distance out of range along z-axis"
-
+            self.done_n = 4.0
         if (
             self.contact
             and self.data.xpos[c.LEFT_FOOT, 2] >= self._healthy_feet_height
             and self.data.xpos[c.RIGHT_FOOT, 2] >= self._healthy_feet_height
-            and np.linalg.norm(self.contact_force_left_foot) < 0.1
-            and np.linalg.norm(self.contact_force_right_foot) < 0.1
+            and np.linalg.norm(self.contact_force_left_foot) < 0.01
+            and np.linalg.norm(self.contact_force_right_foot) < 0.01
         ):
             self.isdone = "Both Feet not on the ground"
-
+            self.done_n = 5.0
         if (
             not self._healthy_dis_to_pelvis
             < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.LEFT_FOOT, 2]
         ):
             self.isdone = "Left foot too close to pelvis"
-
+            self.done_n = 6.0
         if (
             not self._healthy_dis_to_pelvis
             < self.data.xpos[c.PELVIS, 2] - self.data.xpos[c.RIGHT_FOOT, 2]
         ):
             self.isdone = "Right foot too close to pelvis"
+            self.done_n = 7.0
+        pelvis_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
+        rpy_diff = np.abs(pelvis_rpy - self.init_rpy)
+
+        if ( 
+            rpy_diff[0] > self.max_roll
+        ):
+            self.isdone = "Roll too high"
+            self.done_n = 8.0
+        if (
+            rpy_diff[1] > self.max_pitch
+        ):
+            self.isdone = "Pitch too high"
+            self.done_n = 9.0
+        if (
+            rpy_diff[2] > self.max_yaw
+        ):
+            self.isdone = "Yaw too high"
+            self.done_n = 10.0
 
         return self.isdone == "not done"
 
@@ -242,6 +286,16 @@ class CassieEnv(MujocoEnv):
         )
 
         sensor_data = self.data.sensordata
+
+        self.dict_obs = dict(
+            actuator_pos = np.concatenate([sensor_data[:5], sensor_data[8:13]]),
+            joint_pos = np.concatenate([sensor_data[5:8], sensor_data[13:16]]),
+            pelvis_orientation = sensor_data[16:20],
+            pelvis_angular_velocity = sensor_data[20:23],
+            pelvis_linear_acceleration = sensor_data[23:26],
+            magnetometer = sensor_data[26:29],
+        )
+
         # sensor_data = 2.0 * (sensor_data - c.sensor_ranges[0, :]) / ( c.sensor_ranges[1,:] - c.sensor_ranges[0,:]) - 1.0
 
         # getting the read positions of the sensors and concatenate the lists
@@ -312,8 +366,8 @@ class CassieEnv(MujocoEnv):
             # self.data.xpos[c.LEFT_FOOT, 2] < 0.12
             # or self.data.xpos[c.RIGHT_FOOT, 2] < 0.12
 
-            np.linalg.norm(self.contact_force_left_foot) > 0.1
-            or np.linalg.norm(self.contact_force_right_foot) > 0.1
+            np.linalg.norm(self.contact_force_left_foot) > 10
+            or np.linalg.norm(self.contact_force_right_foot) > 10
         ):
             self.contact = True
 
@@ -453,8 +507,8 @@ class CassieEnv(MujocoEnv):
             - 1.0 * q_feet_orientation_right
         ) / (1.0 + 1.0 + 1.0 + 0.5 + 1.0 + 1.0)
 
-        r_smooth = (-1.0 * q_action_diff - 1.0 * q_torque - 1.0 * q_pelvis_acc) / (
-            1.0 + 1.0 + 1.0
+        r_smooth = (-0.1 * q_action_diff - 1.0 * q_torque - 0.1 * q_pelvis_acc) / (
+            0.1 + 1.0 + 0.1
         )
 
         r_biped = 0
@@ -462,8 +516,8 @@ class CassieEnv(MujocoEnv):
         r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc
         r_biped += c_spd(self.phi + c.THETA_LEFT) * q_left_spd
         r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
-
-        r_biped /= 2.0
+        r_biped -= 2.0
+        r_biped /= 4.0
 
         r_symmetric = -1.0 * q_symmetric
 
@@ -565,7 +619,7 @@ class CassieEnv(MujocoEnv):
         self.do_simulation(act, self.frame_skip)
 
         m.mj_step(self.model, self.data)
-
+        terminated = self.terminated
         reward, rewards, metrics = self.compute_reward(act)#, sym_act)
         
         # if self.training:
@@ -575,7 +629,7 @@ class CassieEnv(MujocoEnv):
             observation = self._get_symmetric_obs()
         else:
             observation = self._get_obs()
-        terminated = self.terminated
+
 
         self.steps += 1
         self.phi += 1.0 / self.steps_per_cycle
@@ -603,7 +657,7 @@ class CassieEnv(MujocoEnv):
         m.mj_inverse(self.model, self.data)
 
         noise_low = -self._reset_noise_scale
-
+        self.done_n = 0.0
         noise_high = self._reset_noise_scale
 
         self.previous_action = np.zeros(10)
@@ -617,7 +671,7 @@ class CassieEnv(MujocoEnv):
         #     self.symmetric_turn = True
         # else: 
         #     self.symmetric_turn = False
-        self.symmetric_turn = np.random.choice([True, False])
+        self.symmetric_turn =not self.symmetric_turn
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq
         )
@@ -627,6 +681,8 @@ class CassieEnv(MujocoEnv):
         )
 
         self.set_state(qpos, qvel)
+
+        self.init_rpy =  self.quat_to_rpy(self.data.sensordata[16:20])
 
         return self._get_symmetric_obs() if self.symmetric_turn else self._get_obs()
 
