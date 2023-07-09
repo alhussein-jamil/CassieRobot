@@ -24,7 +24,10 @@ log.basicConfig(level=log.DEBUG)
 
 
 def custom_log_creator(custom_path, custom_str):
-    timestr = datetime.date.today().strftime("%Y-%m-%d_%H-%M-%S")
+    #get current date and time
+    date = datetime.datetime.now()
+    timestr = date.strftime("%Y-%m-%d_%H-%M-%S")
+
     logdir_prefix = "{}_{}".format(custom_str, timestr)
 
     def logger_creator(config):
@@ -68,7 +71,10 @@ if __name__ == "__main__":
     else:
         runs = Path.glob(log_dir, "cassie_PPO_config*")
         load = False
-        for run in list(runs)[::-1]:
+        #sort runs by last modified where the last modified is the first element
+        runs = sorted(runs, key=os.path.getmtime)
+
+        for run in list(runs):
             print("Loading run", run)
             checkpoints = Path.glob(run, "checkpoint_*")
             for checkpoint in list(checkpoints)[::-1]:
@@ -191,6 +197,7 @@ if __name__ == "__main__":
             env = CassieEnv({**config["training"]["environment"]["env_config"], **{"is_training": False}})
             env.render_mode = "rgb_array"
 
+
             os.mkdir(os.path.join(test_dir, "config_{}".format(i)))
             # save config
             with open(
@@ -212,8 +219,8 @@ if __name__ == "__main__":
                     )
                 )
 
-                if result["episode_len_mean"] < 4:
-                    break
+                # if result["episode_len_mean"] < 4:
+                #     break
 
                 # Save model every 10 epochs
                 if epoch % checkpoint_frequency == 0:
@@ -241,7 +248,7 @@ if __name__ == "__main__":
         obs = env.reset()[0]
         done = False
         frames = []
-
+        fps = env.metadata["render_fps"] // 2
         while not done:
             # Increment steps
             steps += 1
