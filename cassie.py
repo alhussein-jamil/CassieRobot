@@ -170,7 +170,6 @@ class CassieEnv(MujocoEnv):
         #     self.symmetric_turn = True
         # else:
         #     self.symmetric_turn = False
-        self.symmetric_turn = np.random.choice([True, False])
     @property
     def healthy_reward(self):
         return (
@@ -604,7 +603,7 @@ class CassieEnv(MujocoEnv):
 
     # step in time
     def step(self, action):
-
+        self.symmetric_turn = self.phi < 0.5
         if self.symmetric_turn:
             act = self.symmetric_action(action)
             # act, sym_act = action[len(action) // 2 :], self.symmetric_action(
@@ -667,11 +666,11 @@ class CassieEnv(MujocoEnv):
         self.steps = 0
 
         self.contact = False
+        self.symmetric_turn = self.phi < 0.5
         # if self.training:
         #     self.symmetric_turn = True
         # else: 
         #     self.symmetric_turn = False
-        self.symmetric_turn =not self.symmetric_turn
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq
         )
