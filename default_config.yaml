@@ -20,24 +20,24 @@ training:
       feet_distance_y: 0.3
       feet_distance_z: 0.3
       feet_pelvis_height: 0.3
-      max_roll: 0.3
-      max_pitch: 1.0
-      max_yaw: 1.0
+      max_roll: 1.0
+      max_pitch: 0.5
+      max_yaw: 3.0
       feet_height: 0.12
       model: cassie
       frame_skip: 20
       render_mode: rgb_array
       reset_noise_scale: 0.01
       bias: 1.0
-      r_biped: 4.0
+      r_biped: 1.0
       r_cmd : 2.0
-      r_smooth: 1.0
-      r_alternate: 1.0
+      r_smooth: 0.2
+      r_alternate: 0.1
       r_symmetric: 0.0
     render_env: false
 
   rollouts: 
-    num_rollout_workers: 20
+    num_rollout_workers: 2
     num_envs_per_worker: 1
     rollout_fragment_length: auto
     batch_mode: truncate_episodes
@@ -55,12 +55,12 @@ training:
     train_batch_size: 15000
     model:
 
-      fcnet_hiddens: [128, 128]
-      fcnet_activation: swish
+      fcnet_hiddens: [256, 128, 64]
+      fcnet_activation: elu
       vf_share_layers: false
       free_log_std: true
     optimizer:
-      type: rmsprop
+      type: adam
     
     use_critic: true
 
@@ -91,7 +91,7 @@ training:
     eager_tracing: false
 
   resources:
-    num_gpus: 1
+    num_gpus: 0
     num_cpus_per_worker: 1
     num_gpus_per_worker: 0
 
