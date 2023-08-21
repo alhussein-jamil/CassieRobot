@@ -161,15 +161,9 @@ class CassieEnv(MujocoEnv):
             render_mode=env_config.get("render_mode", None),
             observation_space=self.observation_space,
         )
-        # self.action_space = Box(
-        #     low=np.array([*self.action_space.low, *self.action_space.low]),
-        #     high=np.array([*self.action_space.high, *self.action_space.high]),
-        # )
+        
         self.render_mode = "rgb_array"
-        # if self.training:
-        #     self.symmetric_turn = True
-        # else:
-        #     self.symmetric_turn = False
+
     @property
     def healthy_reward(self):
         return (
@@ -294,9 +288,7 @@ class CassieEnv(MujocoEnv):
             pelvis_linear_acceleration = sensor_data[23:26],
             magnetometer = sensor_data[26:29],
         )
-
-        # sensor_data = 2.0 * (sensor_data - c.sensor_ranges[0, :]) / ( c.sensor_ranges[1,:] - c.sensor_ranges[0,:]) - 1.0
-
+        
         # getting the read positions of the sensors and concatenate the lists
         self.obs = np.array([*sensor_data, *p])
 
@@ -606,29 +598,19 @@ class CassieEnv(MujocoEnv):
         self.symmetric_turn = self.phi < 0.5
         if self.symmetric_turn:
             act = self.symmetric_action(action)
-            # act, sym_act = action[len(action) // 2 :], self.symmetric_action(
-            #     action[: len(action) // 2]
-            # )
         else:
             act = action
-            # act, sym_act = action[: len(action) // 2], self.symmetric_action(
-            #     action[len(action) // 2 :]
-            # )
 
         self.do_simulation(act, self.frame_skip)
 
         m.mj_step(self.model, self.data)
         terminated = self.terminated
         reward, rewards, metrics = self.compute_reward(act)#, sym_act)
-        
-        # if self.training:
-        # self.symmetric_turn = np.random.choice([True, False])
 
         if self.symmetric_turn:
             observation = self._get_symmetric_obs()
         else:
             observation = self._get_obs()
-
 
         self.steps += 1
         self.phi += 1.0 / self.steps_per_cycle
@@ -649,7 +631,6 @@ class CassieEnv(MujocoEnv):
         info["other_metrics"] = metrics
 
         return observation, reward, terminated, False, info
-        # return observation, torch.tensor(list(rewards.values())), terminated, False, info
 
     # resets the simulation
     def reset_model(self, seed=0):
@@ -666,11 +647,9 @@ class CassieEnv(MujocoEnv):
         self.steps = 0
 
         self.contact = False
+        
         self.symmetric_turn = self.phi < 0.5
-        # if self.training:
-        #     self.symmetric_turn = True
-        # else: 
-        #     self.symmetric_turn = False
+        
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq
         )
