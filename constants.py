@@ -142,8 +142,8 @@ for key in actuator_ranges.keys():
     low_action.append(actuator_ranges[key][0])
     high_action.append(actuator_ranges[key][1])
 
-low_action = torch.tensor(low_action)
-high_action = torch.tensor(high_action)
+low_action = np.array(low_action)
+high_action = np.array(high_action)
 
 
 obs_ranges = np.array(
