@@ -62,6 +62,8 @@ class CassieEnv(MujocoEnv):
         ],
         "render_fps": 100,
     }
+    def denormalize_actions(self, action):#, symmetric_action):
+        return action * (c.high_action - c.low_action) / 2.0 + (c.high_action + c.low_action) / 2.0
 
     def __init__(self, env_config):
         DIRPATH = os.path.dirname(os.path.realpath(__file__))
@@ -600,7 +602,7 @@ class CassieEnv(MujocoEnv):
             act = self.symmetric_action(action)
         else:
             act = action
-
+        act = self.denormalize_actions(act)
         self.do_simulation(act, self.frame_skip)
 
         m.mj_step(self.model, self.data)
