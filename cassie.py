@@ -108,9 +108,7 @@ class CassieEnv(MujocoEnv):
         self.y_cmd_vel = env_config.get("y_cmd_vel", DEFAULT_CONFIG["y_cmd_vel"])
         self.z_cmd_vel = env_config.get("z_cmd_vel", DEFAULT_CONFIG["z_cmd_vel"])
         self.model_file = env_config.get("model", "cassie")
-        self.action_space = gym.spaces.Box(
-            np.float32(c.low_action), np.float32(c.high_action)
-        )
+
         phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
         self.von_mises_values_swing = np.array([
             f.p_between_von_mises(a=self.a_swing, b=self.b_swing, kappa=self.kappa, x=p)
@@ -163,7 +161,9 @@ class CassieEnv(MujocoEnv):
             render_mode=env_config.get("render_mode", None),
             observation_space=self.observation_space,
         )
-        
+        self.action_space = gym.spaces.Box(
+            -1.0, 1.0 , shape=(10,), dtype=np.float32
+        )
         self.render_mode = "rgb_array"
 
     @property
