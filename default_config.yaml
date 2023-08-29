@@ -10,7 +10,7 @@ training:
       r : 0.6
 
       kappa: 20
-      x_cmd_vel: 2.5
+      x_cmd_vel: 0.4
       y_cmd_vel: 0
       z_cmd_vel: 0
       terminate_when_unhealthy: true
@@ -37,7 +37,7 @@ training:
     render_env: false
 
   rollouts: 
-    num_rollout_workers: 2
+    num_rollout_workers: 20
     num_envs_per_worker: 1
     rollout_fragment_length: auto
     batch_mode: truncate_episodes
@@ -51,8 +51,8 @@ training:
 
   training:
     gamma: 0.99
-    lr: 0.001
-    train_batch_size: 15000
+    lr: 0.0003
+    train_batch_size: 4096
     model:
 
       fcnet_hiddens: [256, 128, 64]
@@ -70,9 +70,9 @@ training:
 
     kl_coeff: 0.2
 
-    sgd_minibatch_size: 5000
+    sgd_minibatch_size: 256
 
-    num_sgd_iter: 20
+    num_sgd_iter: 16
 
     shuffle_sequences: true
 
@@ -91,7 +91,7 @@ training:
     eager_tracing: false
 
   resources:
-    num_gpus: 0
+    num_gpus: 1
     num_cpus_per_worker: 1
     num_gpus_per_worker: 0
 
