@@ -6,8 +6,8 @@ training:
     disable_env_checking: true
     env_config: 
       # The constants are defined here
-      steps_per_cycle: 20
-      r : 0.6
+      steps_per_cycle: 30
+      r : 0.5
 
       kappa: 20
       x_cmd_vel: 0.4
@@ -31,13 +31,13 @@ training:
       bias: 1.0
       r_biped: 1.0
       r_cmd : 2.0
-      r_smooth: 0.2
+      r_smooth: 0.4
       r_alternate: 0.1
       r_symmetric: 0.0
     render_env: false
 
   rollouts: 
-    num_rollout_workers: 16
+    num_rollout_workers: 20
     num_envs_per_worker: 1
     rollout_fragment_length: auto
     batch_mode: truncate_episodes
@@ -51,14 +51,14 @@ training:
 
   training:
     gamma: 0.99
-    lr: 0.0003
+    # lr: 0.0003
     train_batch_size: 8192
     model:
 
       fcnet_hiddens: [128, 128]
 
-    optimizer:
-      type: adam
+    # optimizer:
+    #   type: adam
     
     use_critic: true
 
@@ -72,7 +72,7 @@ training:
 
     num_sgd_iter: 16
 
-    shuffle_sequences: true
+    # shuffle_sequences: true
 
     # vf_loss_coeff: 0.5
 
