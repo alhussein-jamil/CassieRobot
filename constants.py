@@ -35,10 +35,10 @@ THETA_RIGHT = 0
 
 FORWARD_QUARTERNIONS = np.array([1, 0, 0, 0])
 
-c_swing_frc = -1
+c_swing_frc = +1
 c_stance_frc = 0
 c_swing_spd = 0
-c_stance_spd = -1
+c_stance_spd = +1
 OMEGA = 4.5
 RIGHT_FOOT = 13
 LEFT_FOOT = 25
