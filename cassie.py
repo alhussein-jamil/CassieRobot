@@ -231,7 +231,6 @@ class CassieEnv(MujocoEnv):
         if (
             not 0.0
             < self.data.xpos[c.RIGHT_FOOT, 1] - self.data.xpos[c.LEFT_FOOT, 1]
-            < self._healthy_feet_distance_y
         ):
             self.isdone = "Feet distance out of range along y-axis"
 
@@ -343,7 +342,7 @@ class CassieEnv(MujocoEnv):
         return np.array([*action[5:], *action[:5]])
 
     def normalize_quantity(self, name, q):
-        self.exponents_ranges[name] = (min(self.exponents_ranges[name][0],q) + 4 * self.exponents_ranges[name][0]) / 5, (max(self.exponents_ranges[name][1],q) + 4 * self.exponents_ranges[name][1]) / 5
+        self.exponents_ranges[name] = min(self.exponents_ranges[name][0],q) , max(self.exponents_ranges[name][1],q)
         return (q - self.exponents_ranges[name][0]) / (self.exponents_ranges[name][1] - self.exponents_ranges[name][0])
 
     # computes the reward
@@ -392,10 +391,10 @@ class CassieEnv(MujocoEnv):
         q_vy = np.exp(
             - 4.5 * self.normalize_quantity("q_vy",np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel])) ** 2)
         )
-        # q_vz = 1 - np.exp(
-        #     c.multiplicators["q_vz"]
-        #     * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])) ** 2
-        # )
+        q_vz = 1 - np.exp(
+            c.multiplicators["q_vz"]
+            * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])) ** 2
+        )
 
         q_left_frc = np.exp(
             - 4.5 * self.normalize_quantity("q_frc_left", np.linalg.norm(self.contact_force_left_foot) ** 2)
@@ -514,14 +513,14 @@ class CassieEnv(MujocoEnv):
 
         r_cmd = (
             +1.0 * q_vx
-            + 1.0 * q_vy
-            + 1.0 * q_orientation
-            #- 0.5 * q_vz
+            + 0.25 * q_vy
+            # + 1.0 * q_orientation
+            + 0.25 * q_vz
             # - 1.0 * q_feet_orientation_left
             # - 1.0 * q_feet_orientation_right
-        ) / (1.0 + 1.0 + 1.0)
+        ) / (1.0 + 0.25 + 0.25)
 
-        r_smooth = (1.0 * q_action_diff +1.0 * q_torque + 1.0 * q_pelvis_acc) / (
+        r_smooth = (1.0 * q_action_diff +0.1 * q_torque + 0.2 * q_pelvis_acc) / (
             1.0 + 1.0 + 1.0
         )
 
@@ -530,7 +529,7 @@ class CassieEnv(MujocoEnv):
         r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc
         r_biped += c_spd(self.phi + c.THETA_LEFT) * q_left_spd
         r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
-        r_biped /= 4.0
+        r_biped /= 2.0
 
         # r_symmetric = -1.0 * q_symmetric
 
@@ -544,57 +543,57 @@ class CassieEnv(MujocoEnv):
 
         reward = sum(
             [rewards[k] * self.reward_coeffs[k] for k in rewards.keys()]
-        ) 
+        )  
 
-        self.C = {
-            "sin": self.obs[-2],
-            "cos": self.obs[-1],
-            # "phase_right": phase_right,
-            # "phase_left": phase_left,
-            "C_frc_left": c_frc(self.phi + c.THETA_LEFT),
-            "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
-            "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
-            "C_spd_right": c_spd(self.phi + c.THETA_RIGHT),
-        }
+        # self.C = {
+        #     "sin": self.obs[-2],
+        #     "cos": self.obs[-1],
+        #     # "phase_right": phase_right,
+        #     # "phase_left": phase_left,
+        #     "C_frc_left": c_frc(self.phi + c.THETA_LEFT),
+        #     "C_frc_right": c_frc(self.phi + c.THETA_RIGHT),
+        #     "C_spd_left": c_spd(self.phi + c.THETA_LEFT),
+        #     "C_spd_right": c_spd(self.phi + c.THETA_RIGHT),
+        # }
 
-        self.exponents = {
-            "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel]))
-            ** 2,
-            "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel]))
-            ** 2,
-            "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel]))
-            ** 2,
-            "q_frc_left": np.linalg.norm(self.contact_force_left_foot) ** 2,
-            "q_frc_right": np.linalg.norm(self.contact_force_right_foot) ** 2,
-            "q_spd_left": np.linalg.norm(qvel[12]) ** 2,
-            "q_spd_right": np.linalg.norm(qvel[19]) ** 2,
-            "q_action": float(
-                f.action_dist(
-                    np.array(action).reshape(1, -1),
-                    np.array(self.previous_action).reshape(1, -1),
-                )
-            ),
-            "q_orientation_left": (
-                np.abs(
-                    self.data.sensordata[c.LEFT_FOOT_JOINT] - c.target_feet_orientation
-                )
-            ),
-            "q_orientation_right": (
-                np.abs(
-                    self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
-                )
-            ),
-            "q_torque": np.linalg.norm(action),
-            "q_pelvis_acc": np.linalg.norm(
-                self.data.sensor("pelvis-angular-velocity").data
-            ),
-            # "q_symmetric": float(
-            #     f.action_dist(
-            #         np.array(action).reshape(1, -1),
-            #         np.array(symmetric_action).reshape(1, -1),
-            #     )
-            # ),
-        }
+        # self.exponents = {
+        #     "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel]))
+        #     ** 2,
+        #     "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel]))
+        #     ** 2,
+        #     "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel]))
+        #     ** 2,
+        #     "q_frc_left": np.linalg.norm(self.contact_force_left_foot) ** 2,
+        #     "q_frc_right": np.linalg.norm(self.contact_force_right_foot) ** 2,
+        #     "q_spd_left": np.linalg.norm(qvel[12]) ** 2,
+        #     "q_spd_right": np.linalg.norm(qvel[19]) ** 2,
+        #     "q_action": float(
+        #         f.action_dist(
+        #             np.array(action).reshape(1, -1),
+        #             np.array(self.previous_action).reshape(1, -1),
+        #         )
+        #     ),
+        #     "q_orientation_left": (
+        #         np.abs(
+        #             self.data.sensordata[c.LEFT_FOOT_JOINT] - c.target_feet_orientation
+        #         )
+        #     ),
+        #     "q_orientation_right": (
+        #         np.abs(
+        #             self.data.sensordata[c.RIGHT_FOOT_JOINT] - c.target_feet_orientation
+        #         )
+        #     ),
+        #     "q_torque": np.linalg.norm(action),
+        #     "q_pelvis_acc": np.linalg.norm(
+        #         self.data.sensor("pelvis-angular-velocity").data
+        #     ),
+        #     # "q_symmetric": float(
+        #     #     f.action_dist(
+        #     #         np.array(action).reshape(1, -1),
+        #     #         np.array(symmetric_action).reshape(1, -1),
+        #     #     )
+        #     # ),
+        # }
 
         metrics = {
             "dis_x": self.data.geom_xpos[16, 0],
