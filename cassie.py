@@ -94,6 +94,23 @@ class CassieEnv(MujocoEnv):
         self.steps_per_cycle = env_config.get(
             "steps_per_cycle", DEFAULT_CONFIG["steps_per_cycle"]
         )
+
+        self.exponents_ranges = dict(
+            q_vx=(0, 1),
+            q_vy=(0, 1),
+            q_vz=(0, 1),
+            q_frc_left=(0, 1),
+            q_frc_right=(0, 1),
+            q_spd_left=(0, 1),
+            q_spd_right=(0, 1),
+            q_action=(0, 1),
+            pelvis_orientation=(0, 1),
+            q_torque=(0, 1),
+            q_pelvis_acc=(0, 1),
+            q_symmetric=(0, 1),
+        )
+        
+
         self.max_roll = env_config.get("max_roll", DEFAULT_CONFIG["max_roll"])
         self.max_pitch = env_config.get("max_pitch", DEFAULT_CONFIG["max_pitch"])
         self.max_yaw = env_config.get("max_yaw", DEFAULT_CONFIG["max_yaw"])
@@ -113,13 +130,13 @@ class CassieEnv(MujocoEnv):
         self.von_mises_values_swing = np.array([
             f.p_between_von_mises(a=self.a_swing, b=self.b_swing, kappa=self.kappa, x=p)
             for p in phis
-        ]) * 2.0 - 1.0
+        ])
         self.von_mises_values_stance =  np.array([
             f.p_between_von_mises(
                 a=self.a_stance, b=self.b_stance, kappa=self.kappa, x=p
             )
             for p in phis
-        ] ) * 2.0 - 1.0
+        ] ) 
 
         # dictionary of keys containing r_
         self.reward_coeffs = {
@@ -325,6 +342,10 @@ class CassieEnv(MujocoEnv):
     def symmetric_action(self, action):
         return np.array([*action[5:], *action[:5]])
 
+    def normalize_quantity(self, name, q):
+        self.exponents_ranges[name] = (min(self.exponents_ranges[name][0],q) + 4 * self.exponents_ranges[name][0]) / 5, (max(self.exponents_ranges[name][1],q) + 4 * self.exponents_ranges[name][1]) / 5
+        return (q - self.exponents_ranges[name][0]) / (self.exponents_ranges[name][1] - self.exponents_ranges[name][0])
+
     # computes the reward
     def compute_reward(self, action):#, symmetric_action):
         # Extract some proxies
@@ -366,58 +387,57 @@ class CassieEnv(MujocoEnv):
 
         # Some metrics to be used in the reward function
         q_vx = np.exp(
-            c.multiplicators["q_vx"]
-            * np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel])) ** 2
+            - 4.5 * self.normalize_quantity("q_vx",np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel])) ** 2)
         )
         q_vy = np.exp(
-            c.multiplicators["q_vy"]
-            * np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel])) ** 2
+            - 4.5 * self.normalize_quantity("q_vy",np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel])) ** 2)
         )
         # q_vz = 1 - np.exp(
         #     c.multiplicators["q_vz"]
         #     * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])) ** 2
         # )
 
-        # q_left_frc = 1.0 - np.exp(
-        #     c.multiplicators["q_frc"] * np.linalg.norm(self.contact_force_left_foot) ** 2
-        # )
-        # q_right_frc = 1.0 - np.exp(
-        #     c.multiplicators["q_frc"] * np.linalg.norm(self.contact_force_right_foot) ** 2
-        # )
-        # q_left_spd = 1.0 - np.exp(
-        #     c.multiplicators["q_spd"] * np.linalg.norm(qvel[12]) ** 2
-        # )
-        # q_right_spd = 1.0 - np.exp(
-        #     c.multiplicators["q_spd"] * np.linalg.norm(qvel[19]) ** 2
-        # )
+        q_left_frc = np.exp(
+            - 4.5 * self.normalize_quantity("q_frc_left", np.linalg.norm(self.contact_force_left_foot) ** 2)
+        )
+        q_right_frc = np.exp(
+           - 4.5 * self.normalize_quantity("q_frc_right", np.linalg.norm(self.contact_force_right_foot) ** 2)
+        )
+        q_left_spd =  np.exp(
+           - 4.5 * self.normalize_quantity("q_spd_left", np.linalg.norm(qvel[12]) ** 2)
+        )
+        q_right_spd =  np.exp(
+              - 4.5 * self.normalize_quantity("q_spd_right", np.linalg.norm(qvel[19]) ** 2)
+        )
         q_action_diff = np.exp(
-            c.multiplicators["q_action"]
-            * float(
+            - 4.5 * self.normalize_quantity("q_action", float(
                 f.action_dist(
                     np.array(action).reshape(1, -1),
                     np.array(self.previous_action).reshape(1, -1),
                 )
+            ))
+        )
+        q_orientation =np.exp(
+            - 4.5 * self.normalize_quantity("pelvis_orientation",
+             (
+                1
+                - (
+                    (self.data.sensor("pelvis-orientation").data.T)
+                    @ (c.FORWARD_QUARTERNIONS)
+                )
+                ** 2
+            )
             )
         )
-        # q_orientation = 1 - np.exp(
-        #     c.multiplicators["q_orientation"]
-        #     * (
-        #         1
-        #         - (
-        #             (self.data.sensor("pelvis-orientation").data.T)
-        #             @ (c.FORWARD_QUARTERNIONS)
-        #         )
-        #         ** 2
-        #     )
-        # )
-        q_torque = np.exp(c.multiplicators["q_torque"] * np.linalg.norm(action))
+        q_torque = np.exp(- 4.5 * self.normalize_quantity("q_torque", np.linalg.norm(action)))
 
-        # q_pelvis_acc = 1 - np.exp(
-        #     c.multiplicators["q_pelvis_acc"]
-        #     * (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data))
-        # )
+        q_pelvis_acc = np.exp(
+            - 4.5 * self.normalize_quantity("q_pelvis_acc",
+            (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data))
+        )
+        )
 
-        # cycle_steps = float(self.steps % self.steps_per_cycle) / self.steps_per_cycle
+        cycle_steps = float(self.steps % self.steps_per_cycle) / self.steps_per_cycle
 
         # phase_left = (
         #     1 if 0.75 > cycle_steps >= 0.5 else -1 if 1 > cycle_steps >= 0.75 else 0
@@ -495,28 +515,27 @@ class CassieEnv(MujocoEnv):
         r_cmd = (
             +1.0 * q_vx
             + 1.0 * q_vy
-            # - 1.0 * q_orientation
-            # - 0.5 * q_vz
+            + 1.0 * q_orientation
+            #- 0.5 * q_vz
             # - 1.0 * q_feet_orientation_left
             # - 1.0 * q_feet_orientation_right
-        ) / (1.0 + 1.0)
+        ) / (1.0 + 1.0 + 1.0)
 
-        r_smooth = (+0.1 * q_action_diff +1.0 * q_torque ) / (
-            0.1 + 1.0
+        r_smooth = (1.0 * q_action_diff +1.0 * q_torque + 1.0 * q_pelvis_acc) / (
+            1.0 + 1.0 + 1.0
         )
 
-        # r_biped = 0
-        # r_biped += c_frc(self.phi + c.THETA_LEFT) * q_left_frc
-        # r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc
-        # r_biped += c_spd(self.phi + c.THETA_LEFT) * q_left_spd
-        # r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
-        # r_biped -= 2.0
-        # r_biped /= 4.0
+        r_biped = 0
+        r_biped += c_frc(self.phi + c.THETA_LEFT) * q_left_frc
+        r_biped += c_frc(self.phi + c.THETA_RIGHT) * q_right_frc
+        r_biped += c_spd(self.phi + c.THETA_LEFT) * q_left_spd
+        r_biped += c_spd(self.phi + c.THETA_RIGHT) * q_right_spd
+        r_biped /= 4.0
 
         # r_symmetric = -1.0 * q_symmetric
 
         rewards = {
-            # "r_biped": r_biped,
+            "r_biped": r_biped,
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
             # "r_alternate": r_alternate,
