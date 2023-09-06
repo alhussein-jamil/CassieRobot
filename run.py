@@ -139,7 +139,7 @@ if __name__ == "__main__":
     fps = config["run"]["sim_fps"]
     print("FPS: {}".format(fps))
     config["run"]["chkpt_freq"] = int(
-        1500000 / config["training"]["training"]["train_batch_size"]
+        3000000 / config["training"]["training"]["train_batch_size"]
     )
     config["run"]["sim_freq"] = int(
         1500000 / config["training"]["training"]["train_batch_size"]
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                 .framework(**training_config.get("framework", {}))
                 .resources(**training_config.get("resources", {}))
                 .evaluation(**training_config.get("evaluation", {}))
-                .callbacks(callbacks_class=MyCallbacks)
+                # .callbacks(callbacks_class=MyCallbacks)
             ).build()
 
             # Build trainer
@@ -212,10 +212,10 @@ if __name__ == "__main__":
                 # Train for one iteration
                 result = trainer.train()
                 print(
-                    "Episode {} Reward Mean {} Distance {} ".format(
+                    "Episode {} Reward Mean {}  ".format(
                         epoch,
                         result["episode_reward_mean"],
-                        result["custom_metrics"]["custom_metrics_distance_mean"],
+                        # result["custom_metrics"]["custom_metrics_distance_mean"],
                     )
                 )
 

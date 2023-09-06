@@ -53,6 +53,7 @@ PELVIS = 1
 
 right_foot_force_idx = 49
 left_foot_force_idx = 33
+
 # The camera configuration
 DEFAULT_CAMERA_CONFIG = {
     "trackbodyid": 0,  # use the body id of Cassie
@@ -61,7 +62,7 @@ DEFAULT_CAMERA_CONFIG = {
     "elevation": -20.0,
 }
 
-actuator_ranges = {
+actuator_speed_ranges = {
     "left-hip-roll": [-4.5, 4.5],
     "left-hip-yaw": [-4.5, 4.5],
     "left-hip-pitch": [-12.2, 12.2],
@@ -98,22 +99,29 @@ sensor_ranges = {
     "left-hip-roll-input": (-15, 22.5),
     "left-hip-yaw-input": (-22.5, 22.5),
     "left-hip-pitch-input": (-50, 80),
-    "left-knee-input": (164, -37),
+    "left-knee-input": (-164, -37),
     "left-foot-input": (-140, -30),
-    "left-shin-output": (-20, 20),
-    "left-tarsus-output": (50, 170),
-    "left-foot-output": (-140, -30),
+    # "left-shin-output": (-20, 20),
+    # "left-tarsus-output": (50, 170),
+    # "left-foot-output": (-140, -30),
     "right-hip-roll-input": (-22.5, 15),
     "right-hip-yaw-input": (-22.5, 22.5),
     "right-hip-pitch-input": (-50, 80),
     "right-knee-input": (-164, -37),
     "right-foot-input": (-140, -30),
-    "right-shin-output": (-20, 20),
-    "right-tarsus-output": (50, 170),
-    "right-foot-output": (-140, -30),
-    "pelvis-orientation": (0, 1),
-    "pelvis-angular-velocity": (-34.9, 34.9)
+    # "right-shin-output": (-20, 20),
+    # "right-tarsus-output": (50, 170),
+    # "right-foot-output": (-140, -30),
+    # "pelvis-orientation": (0, 1),
+    # "pelvis-angular-velocity": (-34.9, 34.9)
 }
+
+actutor_pos_ranges_low = np.array(
+    [x[0] for x in list(sensor_ranges.values())]
+)
+actutor_pos_ranges_high = np.array(
+    [x[1] for x in list(sensor_ranges.values())]
+)
 
 
 sensor_ranges =np.array([[ -12.,  -16.,  -20.,  -51., -136.,   -1.,    0.,   -3.,  -16.,
@@ -128,7 +136,7 @@ sensor_ranges =np.array([[ -12.,  -16.,  -20.,  -51., -136.,   -1.,    0.,   -3.
 # transform the actuator_ranges to a 2d tensor
 
 
-act_ranges = np.array(list(actuator_ranges.values()))
+act_ranges = np.array(list(actuator_speed_ranges.values()))
 
 pos_index = [1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 20, 21, 22, 23, 28, 29, 30, 34]
 
@@ -138,9 +146,9 @@ low_obs, high_obs = torch.tensor([-3] * 23 + [-1, -1]), torch.tensor([3] * 23 + 
 low_obs = low_obs
 high_obs = high_obs
 low_action, high_action = [], []
-for key in actuator_ranges.keys():
-    low_action.append(actuator_ranges[key][0])
-    high_action.append(actuator_ranges[key][1])
+for key in actuator_speed_ranges.keys():
+    low_action.append(actuator_speed_ranges[key][0])
+    high_action.append(actuator_speed_ranges[key][1])
 
 low_action = np.array(low_action)
 high_action = np.array(high_action)
