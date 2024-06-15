@@ -1,0 +1,14 @@
+mujoco
+ray[rllib]
+mediapy 
+pyswarms
+mujoco
+-i https://download.pytorch.org/whl/cu121
+torch 
+-i https://download.pytorch.org/whl/cu121
+torchvision 
+-i https://download.pytorch.org/whl/cu121
+torchaudio 
+ruff
+loguru
+tensorboard
