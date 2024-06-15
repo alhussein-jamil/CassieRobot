@@ -39,7 +39,7 @@ class CapsTorchPolicy(PPOTorchPolicy):
 
         logits_around, _ = model({"obs": around_obs})
 
-        L_S = torch.mean(torch.mean(torch.abs(logits - logits_around), axis=1))
+        L_S = torch.mean(torch.mean(torch.abs(logits - logits_around), dim=1))
         L_T = torch.mean(action_dist(actions[1:, :], actions[:-1, :]))
 
         # add the loss of the state around the observations to the loss

@@ -1,13 +1,15 @@
-import os
+import contextlib
 import logging as log
 import yaml
+from pathlib import Path
 from ray.rllib.algorithms.registry import POLICIES
+from ray.rllib.algorithms import AlgorithmConfig
 
 
 class Loader:
     def __init__(self, logdir="ray_results/", simdir="./sims/"):
-        self.logdir = logdir
-        self.simdir = simdir
+        self.logdir = Path(logdir)
+        self.simdir = Path(simdir)
 
         # register the policy
         POLICIES["CAPSTorchPolicy"] = "caps"
@@ -17,60 +19,49 @@ class Loader:
         checkpoint_path = None
         # load the trainer from the latest checkpoint if exists
         # get the full directory of latest modified directory in the log_dir
-        if os.path.exists(self.logdir):
-            log.info("Log directory exists with path " + self.logdir)
+        if self.logdir.exists():
+            log.info(f"Log directory exists with path {self.logdir}")
             latest_log_directory = max(
-                [
+                (
                     d
-                    for d in os.listdir(self.logdir)
-                    if d.startswith(trainer_name + "_")
-                ],
-                default=0,
+                    for d in self.logdir.iterdir()
+                    if d.is_dir() and d.name.startswith(trainer_name + "_")
+                ),
+                default=None,
+                key=lambda d: d.stat().st_mtime,
             )
-            log.info(
-                "Found log directory with path "
-                + os.path.join(self.logdir, str(latest_log_directory))
-                + " and latest log directory is (if 0 means no logs)"
-                + str(latest_log_directory)
-            )
-            # check that the folder is not empty
-            if latest_log_directory == 0:
+            if latest_log_directory is None:
                 log.info("No checkpoint found in the log directory")
             else:
-                # get the latest directory in the latest log directory
-                latest_directory = max(
-                    [
-                        d.split("_")[-1]
-                        for d in os.listdir(
-                            os.path.join(self.logdir, latest_log_directory)
-                        )
-                        if d.startswith("checkpoint")
-                    ],
-                    default=0,
-                )
-                # load the trainer from the latest checkpoint
-                checkpoint_path = os.path.join(
-                    self.logdir,
-                    latest_log_directory,
-                    "checkpoint_{}/".format(
-                        latest_directory,
-                    ),
-                )
                 log.info(
-                    "Found checkpoint in the log directory with path " + checkpoint_path
+                    f"Found log directory with path {latest_log_directory} and latest log directory is {latest_log_directory.name}"
                 )
-                return checkpoint_path
+                # check that the folder is not empty
+                latest_directory = max(
+                    (
+                        d
+                        for d in latest_log_directory.iterdir()
+                        if d.name.startswith("checkpoint")
+                    ),
+                    default=None,
+                    key=lambda d: d.stat().st_mtime,
+                )
+                if latest_directory is None:
+                    log.info("No checkpoint found in the log directory")
+                else:
+                    checkpoint_path = latest_directory
+                    log.info(
+                        f"Found checkpoint in the log directory with path {checkpoint_path}"
+                    )
+                    return str(checkpoint_path)
         return None
 
     # loads config from the yaml file and returns is as a dictionary
-    def load_config(self, path):
-        with open(path, "r") as stream:
-            try:
+    def load_config(self, path: Path | str) -> dict | None:
+        with Path(path).open() as stream:
+            with contextlib.suppress(yaml.YAMLError):
                 con = yaml.safe_load(stream)
-                print(con)
                 return con
-            except yaml.YAMLError as exc:
-                print(exc)
 
     def split_config(self, config):
         # split the config into multiple configs
@@ -94,28 +85,31 @@ class Loader:
         }
 
     def recover_weights(
-        self, Trainer, checkpoint_path, config, is_dict=False, old_implementation=False
+        self,
+        TrainerConfig: type[AlgorithmConfig],
+        checkpoint_path: str,
+        config: dict,
+        is_dict=False,
+        old_implementation=False,
     ):
         # check that checkpoint path is valid and that it does not end with
         # checkpoint_0
-        if (
-            checkpoint_path is not None
-            and checkpoint_path.split("/")[-2].split("_")[-1] != "0"
-        ):
+        checkpoint_dir = Path(checkpoint_path)
+        if checkpoint_dir.exists() and checkpoint_dir.parent.name.split("_")[-1] != "0":
             # load the a temporary trainer from the checkpoint
             log.info("creating dummy trainer")
             if is_dict:
                 if not old_implementation:
-                    temp = Trainer().from_dict(config).build()
+                    temp = TrainerConfig().from_dict(config).build()
                 else:
-                    temp = Trainer(config=config, env="cassie-v0")
+                    temp = TrainerConfig(config=config, env="cassie-v0")  # type: ignore
 
                 log.info("dict config")
             else:
                 splitted = self.split_config(config)
                 if not old_implementation:
                     temp = (
-                        Trainer()
+                        TrainerConfig()
                         .environment(**splitted.get("environment", {}))
                         .rollouts(**splitted.get("rollouts", {}))
                         .checkpointing(**splitted.get("checkpointing", {}))
@@ -138,15 +132,15 @@ class Loader:
                         **splitted.get("resources", {}),
                         **splitted.get("evaluation", {}),
                     }
-                    temp = Trainer(config=combined, env="cassie-v0")
+                    temp = TrainerConfig(config=combined, env="cassie-v0")  # type: ignore
                 log.info("generalised config")
 
-            temp.restore(checkpoint_path)
+            temp.restore(str(checkpoint_path))  # type: ignore
 
             # Get policy weights
-            policy_weights = temp.get_policy().get_weights()
+            policy_weights = temp.get_policy().get_weights()  # type: ignore
             # Destroy temp
-            temp.stop()
+            temp.stop()  # type: ignore
             del temp  # free memory
             log.info("Weights loaded from checkpoint successfully")
             return policy_weights

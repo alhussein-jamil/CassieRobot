@@ -1,11 +1,11 @@
 import argparse
 import datetime
 import logging as log
-import os
+
 import tempfile
 from pathlib import Path
 from typing import Any
-
+import os
 import mediapy as media
 import ray
 import torch
@@ -25,18 +25,18 @@ torch.cuda.empty_cache()
 
 log.basicConfig(level=log.DEBUG)
 
-os.environ["PYTHONWARNINGS"] = "ignore::DeprecationWarning"
 OUTPUT_DIR = "output"
+max_test_i = 0
+sim_dir = None
 
 
 def train_and_evaluate(
     config: dict[str, Any], hyper_configs: list[dict[str, Any] | None] = [None]
 ):
-    global max_test_i
+    global max_test_i, sim_dir
     # Create folder for test
-    test_dir = os.path.join(sim_dir, "test_{}".format(max_test_i))
-    os.makedirs(test_dir, exist_ok=True)
-
+    test_dir = Path(sim_dir) / f"test_{max_test_i}"
+    test_dir.mkdir(exist_ok=True)
     metrics = []
     for i, hyper_config in enumerate(hyper_configs):
         training_config = config["training"]
@@ -45,7 +45,7 @@ def train_and_evaluate(
             fill_dict_with_list(
                 hyper_config, training_config["environment"]["env_config"]
             )
-        print("Training config ", training_config["environment"]["env_config"])
+        logger.info("Training config {}", training_config["environment"]["env_config"])
 
         trainer = (
             PPOConfig()
@@ -71,7 +71,7 @@ def train_and_evaluate(
             if load:
                 trainer.restore(checkpoint)
 
-        print("Creating test environment")
+        logger.info("Creating test environment")
         env = CassieEnv(
             {
                 **config["training"]["environment"]["env_config"],
@@ -106,7 +106,10 @@ def train_and_evaluate(
             # Save model every 10 epochs
             if epoch % checkpoint_frequency == 0:
                 trainer.save(Path.cwd() / f"{OUTPUT_DIR}/checkpoints/{epoch}")
-                logger.info("Checkpoint saved at {}", Path.cwd() / f"{OUTPUT_DIR}/checkpoints/{epoch}")
+                logger.info(
+                    "Checkpoint saved at {}",
+                    Path.cwd() / f"{OUTPUT_DIR}/checkpoints/{epoch}",
+                )
 
             # Run a test every 20 epochs
             if epoch % simulation_frequency == 0:
@@ -117,16 +120,12 @@ def train_and_evaluate(
     return metrics
 
 
-def evaluate(
-    trainer: PPO, env: gym.Env, epoch: int, i: int, test_dir: str | Path
-):
+def evaluate(trainer: PPO, env: gym.Env, epoch: int, i: int, test_dir: str | Path):
     # Make a steps counter
     steps = 0
 
     # Run test
-    video_path = os.path.join(
-        test_dir + "/config_{}".format(i), "run_{}.mp4".format(epoch)
-    )
+    video_path = Path(test_dir) / f"config_{i}/run_{epoch}.mp4"
     filterfn = trainer.workers.local_worker().filters["default_policy"]
     env.reset()
     obs = env.reset()[0]
@@ -144,7 +143,7 @@ def evaluate(
 
     # Save video
     media.write_video(video_path, frames, fps=fps)
-    print("Test saved at", video_path)
+    logger.info("Test saved at {}", video_path)
 
 
 def custom_log_creator(custom_path: str | Path, custom_str: str):
@@ -186,7 +185,7 @@ if __name__ == "__main__":
         config = args.config
 
     else:
-        config = "default_config.yaml"
+        config = "configs/default_config.yaml"
     logger.info("Config file: {}", config)
     ray.init(ignore_reinit_error=True, num_gpus=1)
 
@@ -276,8 +275,8 @@ if __name__ == "__main__":
     checkpoint_frequency = config["run"]["chkpt_freq"]
     simulation_frequency = config["run"]["sim_freq"]
 
-    print("Checkpoint frequency: {}".format(checkpoint_frequency))
-    print("Simulation frequency: {}".format(simulation_frequency))
+    logger.info("Checkpoint frequency: {}", checkpoint_frequency)
+    logger.info("Simulation frequency: {}", simulation_frequency)
 
     if args.swarm:
         # Define PSO options

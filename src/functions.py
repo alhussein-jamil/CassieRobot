@@ -1,6 +1,10 @@
 import numpy as np
 from scipy import stats
 from .constants import obs_ranges, act_ranges
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
 
 def p_between_von_mises(a, b, kappa, x):
@@ -14,7 +18,9 @@ def p_between_von_mises(a, b, kappa, x):
     return p_between
 
 
-def action_dist(a, b):
+def action_dist(
+    a: "npt.NDArray[np.float64]", b: "npt.NDArray[np.float64]"
+) -> "npt.NDArray[np.float64]":
     diff = a - b
 
     diff /= act_ranges[:, 1] - act_ranges[:, 0]
@@ -23,7 +29,7 @@ def action_dist(a, b):
     return np.sqrt(diff)
 
 
-def normalize(name, value):
+def normalize(name: str, value: float) -> float:
     # normalize the value to be between 0 and 1
     return (value - obs_ranges[name][0]) / (obs_ranges[name][1] - obs_ranges[name][0])
 
@@ -65,19 +71,19 @@ def flatten_dict(nested_dict, parent=""):
     return flat_dict
 
 
-def fill_dict_with_list(l, d, index=0):
+def fill_dict_with_list(list_values, dictionary, index=0):
     """
     Fills a nested dict with a list
     """
-    for k, v in d.items():
+    for k, v in dictionary.items():
         if isinstance(v, dict):
-            fill_dict_with_list(l, v, index)
+            fill_dict_with_list(list_values, v, index)
         elif isinstance(v, list):
             for i in range(len(v)):
                 if isinstance(v[i], float):
-                    v[i] = l[index]
+                    v[i] = list_values[index]
                     index += 1
         elif isinstance(v, float):
-            d[k] = l[index]
+            dictionary[k] = list_values[index]
             index += 1
-    return d
+    return dictionary
