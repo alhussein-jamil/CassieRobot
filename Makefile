@@ -22,7 +22,7 @@ tensorboard:
 ## Format files with ruff
 format:
 	./venv/bin/python -m ruff format .  || exit 0
-	./venv/bin/python -m ruff check . --fix --exit-zero
+	./venv/bin/python -m ruff check . --fix --unsafe-fixes --exit-zero
 
 #################################################################################
 # Self Documenting Commands                                                     #

@@ -1,8 +1,7 @@
 import logging as log
 from copy import deepcopy
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, TYPE_CHECKING
 
-import gymnasium as gym
 import mujoco as m
 import numpy as np
 import torch
@@ -29,12 +28,14 @@ from .constants import (
     FORWARD_QUARTERNIONS,
     THETA_LEFT,
     THETA_RIGHT,
-    actutor_pos_ranges_low,
-    actutor_pos_ranges_high,
     c_stance_spd,
     c_swing_frc,
 )
 from .functions import action_dist, p_between_von_mises
+from numba import jit
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
 log.basicConfig(level=log.DEBUG)
 
@@ -79,7 +80,8 @@ class CassieEnv(MujocoEnv):
         "render_fps": 100,
     }
 
-    def denormalize_actions(self, action):  # , symmetric_action):
+    @staticmethod
+    def denormalize_actions(action):
         return (
             action * (high_action - low_action) / 2.0 + (high_action + low_action) / 2.0
         )
@@ -131,6 +133,8 @@ class CassieEnv(MujocoEnv):
         self.z_cmd_vel = env_config.get("z_cmd_vel", DEFAULT_CONFIG["z_cmd_vel"])
         self.model_file = env_config.get("model", "cassie")
 
+
+        # Massive Speedup by storing the von mises values and reusing them
         phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
         self.von_mises_values_swing = np.array(
             [
@@ -171,20 +175,16 @@ class CassieEnv(MujocoEnv):
         self.previous_action = torch.zeros(10)
 
         self.observation_space_dict = dict(
-            actuators_pos=Box(actutor_pos_ranges_low, actutor_pos_ranges_high),
-            prvious_actuators_pos=Box(actutor_pos_ranges_low, actutor_pos_ranges_high),
-            pelvis_orientation=Box(-1.0, 1.0, shape=(4,)),
-            pelvis_angular_velocity=Box(-np.inf, np.inf, shape=(3,)),
-            pelvis_linear_acceleration=Box(-np.inf, np.inf, shape=(3,)),
+            sensors=Box(np.full(29, -np.inf), np.full(29, np.inf)),
             command=Box(-np.inf, np.inf, shape=(2,)),
-            magnetometer=Box(-np.inf, np.inf, shape=(3,)),
+            contact_forces=Box(-np.inf, np.inf, shape=(6,)),
             clock=Box(-1.0, 1.0, shape=(2,)),
         )
-        # self.observation_space= Box(
-        #     low= np.concatenate([x.low for x in self.observation_space_dict.values()]),
-        #     high= np.concatenate([x.high for x in self.observation_space_dict.values()]),
-        # )
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(40,))
+        self.observation_space = Box(
+            low=np.concatenate([x.low for x in self.observation_space_dict.values()]),
+            high=np.concatenate([x.high for x in self.observation_space_dict.values()]),
+        )
+        # self.observation_space = Box(low=-np.inf, high=np.inf, shape=(40,))
         self.reward_space = Box(
             low=-np.inf,
             high=np.inf,
@@ -198,32 +198,26 @@ class CassieEnv(MujocoEnv):
             render_mode=env_config.get("render_mode", None),
             observation_space=self.observation_space,
         )
-        self.action_space = gym.spaces.Box(-1.0, 1.0, shape=(10,), dtype=np.float32)
         self.render_mode = "rgb_array"
         self.exponents_ranges = dict(
-            q_vx=(0, self.x_cmd_vel),
-            q_vy=(0, self.y_cmd_vel),
-            q_vz=(0, self.z_cmd_vel),
-            q_frc_left=(0, 1),
-            q_frc_right=(0, 1),
-            q_spd_left=(0, 1),
-            q_spd_right=(0, 1),
-            q_action=(0, 1),
-            pelvis_orientation=(0, 1),
-            q_feet_orientation=(0, 1),
-            q_torque=(0, 1),
-            q_pelvis_acc=(0, 1),
-            q_symmetric=(0, 1),
+            q_vx=(0.0, self.x_cmd_vel),
+            q_vy=(0.0, self.y_cmd_vel),
+            q_vz=(0.0, self.z_cmd_vel),
+            q_frc_left=(0.0, 1),
+            q_frc_right=(0.0, 1),
+            q_spd_left=(0.0, 1),
+            q_spd_right=(0.0, 1),
+            q_action=(0.0, 1),
+            pelvis_orientation=(0.0, 1),
+            q_feet_orientation=(0.0, 1),
+            q_torque=(0.0, 1),
+            q_pelvis_acc=(0.0, 1),
+            q_symmetric=(0.0, 1),
         )
 
-    @property
-    def healthy_reward(self):
-        return (
-            float(self.is_healthy or self._terminate_when_unhealthy)
-            * self._healthy_reward
-        )
-
-    def quat_to_rpy(self, quaternion):
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def quat_to_rpy(quaternion: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
         """Convert quaternion to roll, pitch, yaw angles."""
         x, y, z, w = quaternion
         t0 = +2.0 * (w * x + y * z)
@@ -294,27 +288,21 @@ class CassieEnv(MujocoEnv):
         ):
             self.isdone = "Right foot too close to pelvis"
             self.done_n = 7.0
-        # pelvis_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
-        # rpy_diff = np.abs(pelvis_rpy - self.init_rpy)
+        pelvis_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
+        rpy_diff = np.abs(pelvis_rpy - self.init_rpy)
 
-        # if (
-        #     rpy_diff[0] > self.max_roll
-        # ):
-        #     self.isdone = "Roll too high"
-        #     self.done_n = 8.0
-        # if (
-        #     rpy_diff[1] > self.max_pitch
-        # ):
-        #     self.isdone = "Pitch too high"
-        #     self.done_n = 9.0
-        # if (
-        #     rpy_diff[2] > self.max_yaw
-        # ):
-        #     self.isdone = "Yaw too high"
-        #     self.done_n = 10.0
+        if rpy_diff[0] > self.max_roll:
+            self.isdone = "Roll too high"
+            self.done_n = 8.0
+        if rpy_diff[1] > self.max_pitch:
+            self.isdone = "Pitch too high"
+            self.done_n = 9.0
+        if rpy_diff[2] > self.max_yaw:
+            self.isdone = "Yaw too high"
+            self.done_n = 10.0
 
         return self.isdone == "not done"
-
+    
     @property
     def terminated(self):
         terminated = (
@@ -323,373 +311,40 @@ class CassieEnv(MujocoEnv):
             else False
         )
         return terminated
-
-    def _get_obs(self):
-        p = np.array(
-            [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
-        )
-
-        sensor_data = self.data.sensordata
-
-        self.dict_obs = dict(
-            actuators_pos=np.concatenate([sensor_data[:5], sensor_data[8:13]]),
-            prvious_actuators_pos=self.obs[:10],
-            pelvis_orientation=sensor_data[16:20],
-            pelvis_angular_velocity=sensor_data[20:23],
-            pelvis_linear_acceleration=sensor_data[23:26],
-            command=self.command,
-            contact_forces=np.concatenate(
-                [self.contact_force_left_foot[:3], self.contact_force_right_foot[:3]]
-            ),
-            clock=np.array([*p]),
-        )
-
-        # getting the read positions of the sensors and concatenate the lists
-        self.obs = np.concatenate([x for x in self.dict_obs.values()])
-        return self.obs
-
-    def _get_symmetric_obs(self):
-        obs = self._get_obs()
-
+    
+    @staticmethod
+    def _get_symmetric_obs(obs :"npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
         symmetric_obs = deepcopy(obs)
-        # actuator_pos
-        symmetric_obs[0:5] = obs[5:10]
-        symmetric_obs[5:10] = obs[0:5]
 
-        # actuator_PREVIOUS_pos
-        symmetric_obs[10:15] = obs[15:20]
-        symmetric_obs[15:20] = obs[10:15]
+        # sensors
+        symmetric_obs[0:8] = obs[8:16]
+        symmetric_obs[8:16] = obs[0:8]
 
         # pelvis quaternion symmetric along xoz (w,x,y,z) become (w,-x,y,-z)
-        symmetric_obs[22] = -obs[22]
-        symmetric_obs[24] = -obs[24]
+        symmetric_obs[17] = -obs[17]
+        symmetric_obs[19] = -obs[19]
 
         # pelvis angular velocity symmetric along xoz
-        symmetric_obs[25] = -obs[25]
-        symmetric_obs[27] = -obs[27]
+        symmetric_obs[20] = -obs[20]
+        symmetric_obs[22] = -obs[22]
 
         # pelvis acceleration symmetric along xoz
-        symmetric_obs[29] = -obs[29]
+        symmetric_obs[24] = -obs[24]
 
         # command symmetric along xoz
-        symmetric_obs[31] = -obs[31]
+        symmetric_obs[30] = -obs[30]
 
         # contact forces symmetric along xoz
-        symmetric_obs[32:35] = obs[35:38]
-        symmetric_obs[35:38] = obs[32:35]
+        symmetric_obs[31:34] = obs[34:37]
+        symmetric_obs[34:37] = obs[31:34]
 
         # symmetry of the clock
+        symmetric_obs[37] = -obs[37]
         symmetric_obs[38] = -obs[38]
-        symmetric_obs[39] = -obs[39]
 
         return symmetric_obs
+    
 
-    def symmetric_action(self, action):
-        return np.array([*action[5:], *action[:5]])
-
-    def normalize_quantity(self, name, q):
-        k = 5.0
-        self.exponents_ranges[name] = (
-            (
-                (k - 1) * self.exponents_ranges[name][0]
-                + min(self.exponents_ranges[name][0], q)
-            )
-            / k,
-            (
-                (k - 1) * self.exponents_ranges[name][1]
-                + max(self.exponents_ranges[name][1], q)
-            )
-            / k,
-        )
-        return (q - self.exponents_ranges[name][0]) / (
-            self.exponents_ranges[name][1] - self.exponents_ranges[name][0] + 1e-6
-        )
-
-    # computes the reward
-    def compute_reward(self, action):  # , symmetric_action):
-        # Extract some proxies
-        qpos = self.data.qpos.flat.copy()
-        qvel = self.data.qvel.flat.copy()
-
-        qpos = qpos[pos_index]
-        qvel = qvel[vel_index]
-
-        # # Feet Contact Forces
-        contacts = [contact.geom2 for contact in self.data.contact]
-        self.contact_force_left_foot = np.zeros(6)
-
-        self.contact_force_right_foot = np.zeros(6)
-        if left_foot_force_idx in contacts:
-            m.mj_contactForce(
-                self.model,
-                self.data,
-                contacts.index(left_foot_force_idx),
-                self.contact_force_left_foot,
-            )
-        if right_foot_force_idx in contacts:
-            m.mj_contactForce(
-                self.model,
-                self.data,
-                contacts.index(right_foot_force_idx),
-                self.contact_force_right_foot,
-            )
-
-        # check if cassie hit the ground with feet
-        if (
-            self.data.xpos[LEFT_FOOT, 2] < 0.05
-            or self.data.xpos[RIGHT_FOOT, 2] < 0.05
-            or np.linalg.norm(self.contact_force_left_foot) > 500
-            or np.linalg.norm(self.contact_force_right_foot) > 500
-        ):
-            self.contact = True
-
-        # Some metrics to be used in the reward function
-        q_vx = np.exp(
-            -6.0
-            * self.normalize_quantity(
-                "q_vx",
-                np.linalg.norm(np.array([qvel[0]]) - np.array([self.command[0]])),
-            )
-        )
-        q_vy = np.exp(
-            -6.0
-            * self.normalize_quantity(
-                "q_vy",
-                np.linalg.norm(np.array([qvel[1]]) - np.array([self.command[1]])),
-            )
-        )
-        q_vz = np.exp(
-            multiplicators["q_vz"]
-            * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel]))
-        )
-
-        q_left_frc = np.exp(
-            -6.0
-            * self.normalize_quantity(
-                "q_frc_left", np.linalg.norm(self.contact_force_left_foot)
-            )
-        )
-        q_right_frc = np.exp(
-            -6.0
-            * self.normalize_quantity(
-                "q_frc_right", np.linalg.norm(self.contact_force_right_foot)
-            )
-        )
-        q_left_spd = np.exp(
-            -6.0 * self.normalize_quantity("q_spd_left", np.linalg.norm(qvel[12]))
-        )
-        q_right_spd = np.exp(
-            -6.0 * self.normalize_quantity("q_spd_right", np.linalg.norm(qvel[19]))
-        )
-        q_action_diff = np.exp(
-            -6.0
-            * self.normalize_quantity(
-                "q_action",
-                float(
-                    action_dist(
-                        np.array(action).reshape(1, -1),
-                        np.array(self.previous_action).reshape(1, -1),
-                    )
-                ),
-            )
-        )
-        q_orientation = np.exp(
-            -6.0
-            * self.normalize_quantity(
-                "pelvis_orientation",
-                np.linalg.norm(
-                    self.data.sensor("pelvis-orientation").data - FORWARD_QUARTERNIONS
-                ),
-            )
-        )
-        q_torque = np.exp(
-            -6.0 * self.normalize_quantity("q_torque", np.linalg.norm(action))
-        )
-
-        q_pelvis_acc = np.exp(
-            -6.0
-            * self.normalize_quantity(
-                "q_pelvis_acc",
-                (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data)),
-            )
-        )
-
-        cycle_steps = float(self.steps % self.steps_per_cycle) / self.steps_per_cycle
-
-        phase_left = (
-            1 if 0.75 > cycle_steps >= 0.5 else -1 if 1 > cycle_steps >= 0.75 else 0
-        )
-        phase_right = (
-            1 if 0.25 > cycle_steps >= 0 else -1 if 0.5 > cycle_steps >= 0.25 else 0
-        )
-
-        # q_phase_left = 1.0 - np.exp(
-        #     multiplicators["q_marche_distance"]
-        #     * np.clip(
-        #         phase_left
-        #         * (
-        #             0.2
-        #             + self.data.xpos[LEFT_FOOT][0]
-        #             - self.data.xpos[RIGHT_FOOT][0]
-        #         ),
-        #         0,
-        #         np.inf,
-        #     )
-        # )
-        # q_phase_right = 1.0 - np.exp(
-        #     multiplicators["q_marche_distance"]
-        #     * np.clip(
-        #         phase_right
-        #         * (
-        #             0.2
-        #             + self.data.xpos[RIGHT_FOOT][0]
-        #             - self.data.xpos[LEFT_FOOT][0]
-        #         ),
-        #         0,
-        #         np.inf,
-        #     )
-        # )
-
-        # q_feet_orientation_left = np.exp(
-        #     -6.0
-        #     * self.normalize_quantity(
-        #         "q_feet_orientation",
-        #         np.abs(
-        #             self.data.sensordata[LEFT_FOOT_JOINT] - target_feet_orientation
-        #         ),
-        #     )
-        # )
-        # q_feet_orientation_right = np.exp(
-        #     -6.0
-        #     * self.normalize_quantity(
-        #         "q_feet_orientation",
-        #         np.abs(
-        #             self.data.sensordata[RIGHT_FOOT_JOINT] - target_feet_orientation
-        #         ),
-        #     )
-        # )
-
-        def i_swing_frc(phi):
-            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
-            return self.von_mises_values_swing[index]
-
-        def i_stance_spd(phi):
-            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
-            return self.von_mises_values_stance[index]
-
-        def c_frc(phi):
-            return c_swing_frc * i_swing_frc(phi)
-
-        def c_spd(phi):
-            return c_stance_spd * i_stance_spd(phi)
-
-        # r_alternate = (-1.0 * q_phase_left - 1.0 * q_phase_right) / (1.0 + 1.0)
-
-        r_cmd = (
-            +1.0 * q_vx + 0.8 * q_vy + 0.2 * q_orientation + 0.2 * q_vz
-            # + 0.5 * q_feet_orientation_left
-            # + 0.5 * q_feet_orientation_right
-        ) / (1.0 + 0.8 + 0.2 + 0.2)
-
-        r_smooth = (1.0 * q_action_diff + 0.5 * q_torque + 0.5 * q_pelvis_acc) / (
-            1.0 + 0.5 + 0.5
-        )
-
-        r_biped = 0
-        r_biped += c_frc(self.phi + THETA_LEFT) * q_left_frc
-        r_biped += c_frc(self.phi + THETA_RIGHT) * q_right_frc
-        r_biped += c_spd(self.phi + THETA_LEFT) * q_left_spd
-        r_biped += c_spd(self.phi + THETA_RIGHT) * q_right_spd
-        r_biped /= 2.0
-
-        # r_symmetric = 0.0
-
-        rewards = {
-            "r_biped": r_biped,
-            "r_cmd": r_cmd,
-            "r_smooth": r_smooth,
-            # "r_alternate": r_alternate,
-            # "r_symmetric": r_symmetric,
-        }
-
-        reward = sum(
-            [rewards[k] * self.reward_coeffs[k] for k in rewards.keys()]
-        ) / sum(
-            [
-                value
-                for key, value in self.reward_coeffs.items()
-                if key in rewards.keys()
-            ]
-        )
-
-        # self.C = {
-        #     "sin": self.obs[-2],
-        #     "cos": self.obs[-1],
-        #     # "phase_right": phase_right,
-        #     # "phase_left": phase_left,
-        #     "C_frc_left": c_frc(self.phi + THETA_LEFT),
-        #     "C_frc_right": c_frc(self.phi + THETA_RIGHT),
-        #     "C_spd_left": c_spd(self.phi + THETA_LEFT),
-        #     "C_spd_right": c_spd(self.phi + THETA_RIGHT),
-        # }
-
-        # self.exponents = {
-        #     "q_vx": np.linalg.norm(np.array([qvel[0]]) - np.array([self.x_cmd_vel]))
-        #     ** 2,
-        #     "q_vy": np.linalg.norm(np.array([qvel[1]]) - np.array([self.y_cmd_vel]))
-        #     ** 2,
-        #     "q_vz": np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel]))
-        #     ** 2,
-        #     "q_frc_left": np.linalg.norm(self.contact_force_left_foot) ** 2,
-        #     "q_frc_right": np.linalg.norm(self.contact_force_right_foot) ** 2,
-        #     "q_spd_left": np.linalg.norm(qvel[12]) ** 2,
-        #     "q_spd_right": np.linalg.norm(qvel[19]) ** 2,
-        #     "q_action": float(
-        #         f.action_dist(
-        #             np.array(action).reshape(1, -1),
-        #             np.array(self.previous_action).reshape(1, -1),
-        #         )
-        #     ),
-        #     "q_orientation_left": (
-        #         np.abs(
-        #             self.data.sensordata[LEFT_FOOT_JOINT] - target_feet_orientation
-        #         )
-        #     ),
-        #     "q_orientation_right": (
-        #         np.abs(
-        #             self.data.sensordata[RIGHT_FOOT_JOINT] - target_feet_orientation
-        #         )
-        #     ),
-        #     "q_torque": np.linalg.norm(action),
-        #     "q_pelvis_acc": np.linalg.norm(
-        #         self.data.sensor("pelvis-angular-velocity").data
-        #     ),
-        #     # "q_symmetric": float(
-        #     #     f.action_dist(
-        #     #         np.array(action).reshape(1, -1),
-        #     #         np.array(symmetric_action).reshape(1, -1),
-        #     #     )
-        #     # ),
-        # }
-
-        metrics = {
-            "dis_x": self.data.geom_xpos[16, 0],
-            "dis_y": self.data.geom_xpos[16, 1],
-            "dis_z": self.data.geom_xpos[16, 2],
-            "vel_x": self.data.qvel[0],
-            "vel_y": self.data.qvel[1],
-            "vel_z": self.data.qvel[2],
-            "feet_distance_x": abs(
-                self.data.xpos[LEFT_FOOT, 0] - self.data.xpos[RIGHT_FOOT, 0]
-            ),
-            "feet_distance_y": abs(
-                self.data.xpos[LEFT_FOOT, 1] - self.data.xpos[RIGHT_FOOT, 1]
-            ),
-            "feet_distance_z": abs(
-                self.data.xpos[LEFT_FOOT, 2] - self.data.xpos[RIGHT_FOOT, 2]
-            ),
-        }
-        return reward, rewards, metrics
 
     # step in time
     def step(self, action):
@@ -701,14 +356,15 @@ class CassieEnv(MujocoEnv):
         act = self.denormalize_actions(act)
         self.do_simulation(act, self.frame_skip)
 
-        m.mj_step(self.model, self.data)
+        m.mj_step(self.model, self.data)  # type: ignore
         terminated = self.terminated
-        reward, rewards, metrics = self.compute_reward(act)  # , sym_act)
+        reward, rewards, metrics = self._compute_reward(act)  # , sym_act)
 
+        self._set_obs()
         if self.symmetric_turn:
-            observation = self._get_symmetric_obs()
+            observation = self._get_symmetric_obs(self.obs)
         else:
-            observation = self._get_obs()
+            observation = self.obs
 
         self.steps += 1
         self.phi += 1.0 / self.steps_per_cycle
@@ -718,15 +374,14 @@ class CassieEnv(MujocoEnv):
         # self.previous_symmetric_action = sym_act
 
         info = {}
-        # info["custom_rewards"] = rewards
-        # info["custom_quantities"] = used_quantities
+        info["custom_rewards"] = rewards
 
-        # info["custom_metrics"] = {
-        #     "distance": self.data.qpos[0],
-        #     "height": self.data.qpos[2],
-        # }
+        info["custom_metrics"] = {
+            "distance": self.data.qpos[0],
+            "height": self.data.qpos[2],
+        }
 
-        # info["other_metrics"] = metrics
+        info["other_metrics"] = metrics
 
         return observation, reward, terminated, False, info
 
@@ -735,7 +390,7 @@ class CassieEnv(MujocoEnv):
         # set seed
         np.random.seed(seed)
 
-        m.mj_inverse(self.model, self.data)
+        m.mj_inverse(self.model, self.data)  # type: ignore
 
         self.done_n = 0.0
 
@@ -768,7 +423,236 @@ class CassieEnv(MujocoEnv):
 
         self.init_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
 
-        return self._get_symmetric_obs() if self.symmetric_turn else self._get_obs()
+        self._set_obs()
+
+        return self._get_symmetric_obs(self.obs) if self.symmetric_turn else self.obs
+
+    @staticmethod
+    def symmetric_action(action):
+        return np.array([*action[5:], *action[:5]])
+    
+    @staticmethod
+    def normalize_reward(rewards: dict[str, float], reward_coeffs: dict[str, float]):
+        return sum([rewards[k] * reward_coeffs[k] for k in rewards.keys()]) / sum(
+            [value for key, value in reward_coeffs.items() if key in rewards.keys()]
+        )
+
+
+    def _set_obs(self):
+        p = np.array(
+            [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
+        )
+
+        sensor_data = self.data.sensordata
+        self.obs = np.concatenate(
+            [
+                sensor_data,  # 0 - 28
+                self.command,  # 29 - 31
+                np.concatenate(
+                    [
+                        self.contact_force_left_foot[:3],
+                        self.contact_force_right_foot[:3],
+                    ]
+                ),  # 32 - 37
+                np.array([*p]),  # 38 - 39
+            ]
+        )
+
+    def _get_obs(self):
+        return self.obs
+
+
+    def _normalize_quantity(self, name, q):
+        k = 5.0
+        self.exponents_ranges[name] = (
+            (
+                (k - 1) * self.exponents_ranges[name][0]
+                + min(self.exponents_ranges[name][0], q)
+            )
+            / k,
+            (
+                (k - 1) * self.exponents_ranges[name][1]
+                + max(self.exponents_ranges[name][1], q)
+            )
+            / k,
+        )
+        return (q - self.exponents_ranges[name][0]) / (
+            self.exponents_ranges[name][1] - self.exponents_ranges[name][0] + 1e-6
+        )
+
+
+    # computes the reward
+    def _compute_reward(self, action: "npt.NDArray[np.float32]"):  # , symmetric_action):
+        # Extract some proxies
+        qpos = self.data.qpos.flat.copy()
+        qvel = self.data.qvel.flat.copy()
+
+        qpos = qpos[pos_index]
+        qvel = qvel[vel_index]
+
+        # # Feet Contact Forces
+        contacts = [contact.geom2 for contact in self.data.contact]
+        self.contact_force_left_foot = np.zeros(6)
+
+        self.contact_force_right_foot = np.zeros(6)
+
+        if left_foot_force_idx in contacts:
+            m.mj_contactForce(  # type: ignore
+                self.model,
+                self.data,
+                contacts.index(left_foot_force_idx),
+                self.contact_force_left_foot,
+            )
+        if right_foot_force_idx in contacts:
+            m.mj_contactForce(  # type: ignore
+                self.model,
+                self.data,
+                contacts.index(right_foot_force_idx),
+                self.contact_force_right_foot,
+            )
+
+        # check if cassie hit the ground with feet
+        if (
+            self.data.xpos[LEFT_FOOT, 2] < 0.05
+            or self.data.xpos[RIGHT_FOOT, 2] < 0.05
+            or np.linalg.norm(self.contact_force_left_foot) > 500
+            or np.linalg.norm(self.contact_force_right_foot) > 500
+        ):
+            self.contact = True
+
+        # Some metrics to be used in the reward function
+        q_vx = np.exp(
+            -6.0
+            * self._normalize_quantity(
+                "q_vx",
+                np.linalg.norm(np.array([qvel[0]]) - np.array([self.command[0]])),
+            )
+        )
+        q_vy = np.exp(
+            -6.0
+            * self._normalize_quantity(
+                "q_vy",
+                np.linalg.norm(np.array([qvel[1]]) - np.array([self.command[1]])),
+            )
+        )
+        q_vz = np.exp(
+            multiplicators["q_vz"]
+            * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])),
+        )
+
+        q_left_frc = np.exp(
+            -6.0
+            * self._normalize_quantity(
+                "q_frc_left", np.linalg.norm(self.contact_force_left_foot)
+            )
+        )
+        q_right_frc = np.exp(
+            -6.0
+            * self._normalize_quantity(
+                "q_frc_right", np.linalg.norm(self.contact_force_right_foot)
+            )
+        )
+        q_left_spd = np.exp(
+            -6.0 * self._normalize_quantity("q_spd_left", np.linalg.norm(qvel[12]))
+        )
+        q_right_spd = np.exp(
+            -6.0 * self._normalize_quantity("q_spd_right", np.linalg.norm(qvel[19]))
+        )
+        q_action_diff = np.exp(
+            -6.0
+            * self._normalize_quantity(
+                "q_action",
+                float(
+                    action_dist(
+                        np.array(action).reshape(1, -1),
+                        np.array(self.previous_action).reshape(1, -1),
+                    )
+                ),
+            )
+        )
+        q_orientation = np.exp(
+            -6.0
+            * self._normalize_quantity(
+                "pelvis_orientation",
+                np.linalg.norm(
+                    self.data.sensor("pelvis-orientation").data - FORWARD_QUARTERNIONS
+                ),
+            )
+        )
+        q_torque = np.exp(
+            -6.0 * self._normalize_quantity("q_torque", np.linalg.norm(action))
+        )
+
+        q_pelvis_acc = np.exp(
+            -6.0
+            * self._normalize_quantity(
+                "q_pelvis_acc",
+                (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data)),
+            )
+        )
+
+        def i_swing_frc(phi):
+            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
+            return self.von_mises_values_swing[index]
+
+        def i_stance_spd(phi):
+            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
+            return self.von_mises_values_stance[index]
+
+        def c_frc(phi):
+            return c_swing_frc * i_swing_frc(phi)
+
+        def c_spd(phi):
+            return c_stance_spd * i_stance_spd(phi)
+
+        # Compute the rewards
+
+        ## Compute Command Reward
+        r_cmd = (+1.0 * q_vx + 0.8 * q_vy + 0.2 * q_orientation + 0.2 * q_vz) / (
+            1.0 + 0.8 + 0.2 + 0.2
+        )
+
+        ## Compute Smoothness Reward
+        r_smooth = (1.0 * q_action_diff + 0.5 * q_torque + 0.5 * q_pelvis_acc) / (
+            1.0 + 0.5 + 0.5
+        )
+
+        ## Compute Bipedal Reward
+        r_biped = 0
+        r_biped += c_frc(self.phi + THETA_LEFT) * q_left_frc
+        r_biped += c_frc(self.phi + THETA_RIGHT) * q_right_frc
+        r_biped += c_spd(self.phi + THETA_LEFT) * q_left_spd
+        r_biped += c_spd(self.phi + THETA_RIGHT) * q_right_spd
+        r_biped /= 2.0
+
+        rewards = {
+            "r_biped": r_biped,
+            "r_cmd": r_cmd,
+            "r_smooth": r_smooth,
+        }
+
+        reward = self.normalize_reward(rewards, self.reward_coeffs)
+
+        metrics = {
+            "dis_x": self.data.geom_xpos[16, 0],
+            "dis_y": self.data.geom_xpos[16, 1],
+            "dis_z": self.data.geom_xpos[16, 2],
+            "vel_x": self.data.qvel[0],
+            "vel_y": self.data.qvel[1],
+            "vel_z": self.data.qvel[2],
+            "feet_distance_x": abs(
+                self.data.xpos[LEFT_FOOT, 0] - self.data.xpos[RIGHT_FOOT, 0]
+            ),
+            "feet_distance_y": abs(
+                self.data.xpos[LEFT_FOOT, 1] - self.data.xpos[RIGHT_FOOT, 1]
+            ),
+            "feet_distance_z": abs(
+                self.data.xpos[LEFT_FOOT, 2] - self.data.xpos[RIGHT_FOOT, 2]
+            ),
+        }
+        return reward, rewards, metrics
+
+
 
 
 class MyCallbacks(DefaultCallbacks):
