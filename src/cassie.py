@@ -33,11 +33,10 @@ from .constants import (
 )
 from .functions import action_dist, p_between_von_mises
 from numba import jit
-
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-log.basicConfig(level=log.DEBUG)
+log.basicConfig(level=log.INFO)
 
 DEFAULT_CONFIG = {
     "steps_per_cycle": 30,
@@ -197,6 +196,8 @@ class CassieEnv(MujocoEnv):
             frame_skip=env_config.get("frame_skip", 40),
             render_mode=env_config.get("render_mode", None),
             observation_space=self.observation_space,
+            width = env_config.get("width", 1920),
+            height = env_config.get("height", 1080),
         )
         self.render_mode = "rgb_array"
         self.exponents_ranges = dict(
@@ -347,7 +348,8 @@ class CassieEnv(MujocoEnv):
 
 
     # step in time
-    def step(self, action):
+    def step(self, action: "npt.NDArray[np.float32]") -> tuple[
+        "npt.NDArray[np.float32]", float, bool, bool, dict[str, Any] ]:
         self.symmetric_turn = self.phi < 0.5
         if self.symmetric_turn:
             act = self.symmetric_action(action)
@@ -386,7 +388,7 @@ class CassieEnv(MujocoEnv):
         return observation, reward, terminated, False, info
 
     # resets the simulation
-    def reset_model(self, seed=0):
+    def reset_model(self, seed: int = None) -> "npt.NDArray[np.float32]":
         # set seed
         np.random.seed(seed)
 
@@ -464,6 +466,7 @@ class CassieEnv(MujocoEnv):
 
     def _normalize_quantity(self, name, q):
         k = 5.0
+        # Update the range
         self.exponents_ranges[name] = (
             (
                 (k - 1) * self.exponents_ranges[name][0]
@@ -476,6 +479,7 @@ class CassieEnv(MujocoEnv):
             )
             / k,
         )
+        # Normalize the quantity
         return (q - self.exponents_ranges[name][0]) / (
             self.exponents_ranges[name][1] - self.exponents_ranges[name][0] + 1e-6
         )
@@ -659,11 +663,7 @@ class MyCallbacks(DefaultCallbacks):
     def on_episode_step(
         self,
         *,
-        worker: RolloutWorker,
-        base_env: BaseEnv,
-        policies: Dict[str, Policy],
         episode: EpisodeV2,
-        env_index: int,
         **kwargs,
     ):
         # Make sure this episode is ongoing.
@@ -686,11 +686,7 @@ class MyCallbacks(DefaultCallbacks):
     def on_episode_end(
         self,
         *,
-        worker: RolloutWorker,
-        base_env: BaseEnv,
-        policies: Dict[str, Policy],
         episode: EpisodeV2,
-        env_index: int,
         **kwargs,
     ):
         for key in episode._last_infos["agent0"].keys():
@@ -709,13 +705,7 @@ class MyCallbacks(DefaultCallbacks):
     def on_postprocess_trajectory(
         self,
         *,
-        worker: RolloutWorker,
         episode: Episode,
-        agent_id: str,
-        policy_id: str,
-        policies: Dict[str, Policy],
-        postprocessed_batch: SampleBatch,
-        original_batches: Dict[str, Tuple[Policy, SampleBatch]],
         **kwargs,
     ):
         if "num_batches" not in episode.custom_metrics:

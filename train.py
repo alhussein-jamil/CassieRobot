@@ -17,7 +17,7 @@ from ray.tune.logger import UnifiedLogger
 from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPO
 from src.functions import fill_dict_with_list, flatten_dict
-from src.cassie import CassieEnv
+from src.cassie import CassieEnv, MyCallbacks
 from src.loader import Loader
 from loguru import logger
 
@@ -27,16 +27,20 @@ log.basicConfig(level=log.DEBUG)
 
 OUTPUT_DIR = "output"
 max_test_i = 0
-sim_dir = None
-
+checkpoint = None
+load = False
+sim_dir = Path.cwd() / f"{OUTPUT_DIR}/simulations"
+checkpoints_dir = Path.cwd() / f"{OUTPUT_DIR}/checkpoints"
+log_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results"
 
 def train_and_evaluate(
-    config: dict[str, Any], hyper_configs: list[dict[str, Any] | None] = [None]
+    config: dict[str, Any], hyper_configs: list[dict[str, Any] | None] = [None], checkpoint: str | Path | None = None
 ):
-    global max_test_i, sim_dir
+    global max_test_i
     # Create folder for test
     test_dir = Path(sim_dir) / f"test_{max_test_i}"
     test_dir.mkdir(exist_ok=True)
+
     metrics = []
     for i, hyper_config in enumerate(hyper_configs):
         training_config = config["training"]
@@ -63,13 +67,12 @@ def train_and_evaluate(
             .framework(**training_config.get("framework", {}))
             .resources(**training_config.get("resources", {}))
             .evaluation(**training_config.get("evaluation", {}))
-            # .callbacks(callbacks_class=MyCallbacks)
+            .callbacks(callbacks_class=MyCallbacks)
         ).build()
-
         # Build trainer
         if not clean_run:
             if load:
-                trainer.restore(checkpoint)
+                trainer.restore(str(checkpoint).replace("\\", "/"))
 
         logger.info("Creating test environment")
         env = CassieEnv(
@@ -80,11 +83,10 @@ def train_and_evaluate(
         )
         env.render_mode = "rgb_array"
 
-        os.mkdir(os.path.join(test_dir, "config_{}".format(i)))
+        (test_dir / f"config_{i}").mkdir(exist_ok=True)
+
         # save config
-        with open(
-            os.path.join(test_dir, "config_{}".format(i), "config.yaml"), "w"
-        ) as file:
+        with (test_dir / f"config_{i}/config.yaml").open("w") as file:
             yaml.dump(config["training"]["environment"]["env_config"], file)
 
         for epoch in range(
@@ -97,6 +99,7 @@ def train_and_evaluate(
                 "Episode {} Reward Mean {}  ",
                 epoch,
                 result["env_runners"]["episode_reward_mean"],
+                # result["episode_reward_mean"],
                 # result["custom_metrics"]["custom_metrics_distance_mean"],
             )
 
@@ -105,10 +108,11 @@ def train_and_evaluate(
 
             # Save model every 10 epochs
             if epoch % checkpoint_frequency == 0:
-                trainer.save(Path.cwd() / f"{OUTPUT_DIR}/checkpoints/{epoch}")
+                checkpoint_dir_tmp = checkpoints_dir / f"test_{max_test_i}/config_{i}/checkpoint_{epoch}"
+                trainer.save(checkpoint_dir_tmp)
                 logger.info(
                     "Checkpoint saved at {}",
-                    Path.cwd() / f"{OUTPUT_DIR}/checkpoints/{epoch}",
+                    checkpoint_dir_tmp,
                 )
 
             # Run a test every 20 epochs
@@ -194,14 +198,21 @@ if __name__ == "__main__":
     if clean_run:
         logger.info("Running clean run")
     else:
-        runs = Path.glob(log_dir, "cassie_PPO_config*")
+        # runs = Path.glob(log_dir, "cassie_PPO_config*")
+        runs = Path.glob(checkpoints_dir, "test_*")
         load = False
         # sort runs by last modified where the last modified is the first element
         runs = sorted(runs, key=os.path.getmtime)
 
         for run in list(runs):
-            logger.info("Loading run {}", run)
-            checkpoints = Path.glob(run, "checkpoint_*")
+            if len(list(run.glob("config_*"))) > 0:
+                run_config = run / "config_0" 
+            else: 
+                run_config = run
+                
+            logger.info("Loading run {}", run_config)            
+            checkpoints = Path.glob(run_config, "epoch_*")
+
             for checkpoint in list(checkpoints)[::-1]:
                 logger.info("Loading checkpoint {}", checkpoint)
                 load = True
@@ -210,7 +221,6 @@ if __name__ == "__main__":
                 break
             else:
                 logger.info("No checkpoint found here")
-
     if args.simdir is not None:
         sim_dir = args.simdir
     else:
@@ -292,10 +302,10 @@ if __name__ == "__main__":
             options=pso_options,
         )
         best_hyperparameters, best_fitness = optimizer.optimize(
-            lambda hyperconfigs: train_and_evaluate(config, hyper_configs=hyperconfigs),
+            lambda hyperconfigs: train_and_evaluate(config, hyper_configs=hyperconfigs, checkpoint = checkpoint),
             iters=config["run"]["hyper_par_iter"],
         )
         print("Best hyperparameters", best_hyperparameters)
         print("Best fitness", best_fitness)
     else:
-        train_and_evaluate(config)
+        train_and_evaluate(config, checkpoint=checkpoint)
