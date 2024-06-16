@@ -84,6 +84,7 @@
 ## About The Project
 
 [![Product Name Screen Shot][product-screenshot]](images/screenshot.png)
+This was a project that I started working on in 2023, the goal was to reimplment the PPO algorithm for the Cassie robot. It was left to rot for a while, I tried getting back to the project recently and refactor the code making it more stable and easier to use.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
