@@ -1,5 +1,14 @@
 .PHONY: install webapp format
 PYTHON := python3.10
+# Detect OS
+OS := $(shell uname)
+ifeq ($(OS),Linux)
+    PYTHONVENV= venv/bin/python
+	TENSORBOARD = venv/bin/tensorboard
+else
+    PYTHONVENV = venv/Scripts/python.exe
+	TENSORBOARD = venv/Scripts/tensorboard
+endif
 
 ## Install environment
 install:
@@ -7,22 +16,23 @@ install:
 	@rm -rf venv/
 	@echo ">> Create venv"
 	@$(PYTHON) -m venv venv
-	@./venv/bin/python -m pip install -U pip
+	@$(PYTHONVENV) -m pip install -U pip
 	@echo ">> Installing dependencies"
-	@./venv/bin/python -m pip install -r requirements.txt
+	@$(PYTHONVENV) -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+	@$(PYTHONVENV) -m pip install -r requirements.txt
 
 ## Run webapp
 train: 
-	@./venv/bin/python -m train
+	@PYTHONWARNINGS="ignore" $(PYTHONVENV) -m train
 
 ## Run Tensorboard
 tensorboard:
-	@./venv/bin/tensorboard --logdir output/ray_results
+	@$(TENSORBOARD) --logdir output/ray_results
 
 ## Format files with ruff
 format:
-	./venv/bin/python -m ruff format .  || exit 0
-	./venv/bin/python -m ruff check . --fix --unsafe-fixes --exit-zero
+	$(PYTHONVENV) -m ruff format .  || exit 0
+	$(PYTHONVENV) -m ruff check . --fix --unsafe-fixes --exit-zero
 
 #################################################################################
 # Self Documenting Commands                                                     #

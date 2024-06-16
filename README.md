@@ -85,8 +85,6 @@
 
 [![Product Name Screen Shot][product-screenshot]](images/screenshot.png)
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `alhussein-jamil`, `CassieRobot`, `twitter_handle`, `alhussein-jamil`, `alhussein.jamil@polytechnique.edu_client`, `alhussein.jamil@polytechnique.edu`, `project_title`, `project_description`
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
