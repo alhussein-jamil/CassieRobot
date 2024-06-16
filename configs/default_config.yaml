@@ -5,7 +5,7 @@ training:
     normalize_actions: true
     env_config: 
       # The constants are defined here
-      steps_per_cycle: 20
+      steps_per_cycle: 30
       r : 0.6
       kappa: 20
       x_cmd_vel: 0.8
@@ -31,7 +31,7 @@ training:
       bias: 1.0
       r_biped: 1.0
       r_cmd : 0.8
-      r_smooth: 0.2
+      r_smooth: 0.6
     render_env: false
 
   env_runners: 
@@ -48,15 +48,18 @@ training:
     logger_creator: ???
     log_level: INFO
   
+  fault_tolerance:
+    recreate_failed_env_runners: true
 
   training:
+
     gamma: 0.99
-    train_batch_size: 16384
+    train_batch_size: 32768
     model:
-      fcnet_hiddens: [  256, 128,64]
+      fcnet_hiddens: [256, 256]
       fcnet_activation: elu
     optimizer:
-      type: rmsprop
+      type: adam
         
     use_critic: true
 
@@ -68,7 +71,7 @@ training:
 
     sgd_minibatch_size: 1024
 
-    num_sgd_iter: 16
+    num_sgd_iter: 32
 
     shuffle_sequences: true
 
@@ -80,13 +83,8 @@ training:
 
     kl_target: 0.01
 
-    
-    
-    vf_clip_param: 1000.0
-
   framework:
     framework: torch
-    eager_tracing: false
 
   resources:
     num_gpus: 1

@@ -33,8 +33,11 @@ sim_dir = Path.cwd() / f"{OUTPUT_DIR}/simulations"
 checkpoints_dir = Path.cwd() / f"{OUTPUT_DIR}/checkpoints"
 log_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results"
 
+
 def train_and_evaluate(
-    config: dict[str, Any], hyper_configs: list[dict[str, Any] | None] = [None], checkpoint: str | Path | None = None
+    config: dict[str, Any],
+    hyper_configs: list[dict[str, Any] | None] = [None],
+    checkpoint: str | Path | None = None,
 ):
     global max_test_i
     # Create folder for test
@@ -93,8 +96,12 @@ def train_and_evaluate(
             trainer.iteration if hasattr(trainer, "iteration") else 0,
             config["run"].get("epochs", 1000),
         ):
-            # Train for one iteration
-            result = trainer.train()
+            try:
+                # Train for one iteration
+                result = trainer.train()
+            except ValueError as e:
+                logger.error("Value error: {}", e)
+
             logger.info(
                 "Episode {} Reward Mean {}  ",
                 epoch,
@@ -108,7 +115,9 @@ def train_and_evaluate(
 
             # Save model every 10 epochs
             if epoch % checkpoint_frequency == 0:
-                checkpoint_dir_tmp = checkpoints_dir / f"test_{max_test_i}/config_{i}/checkpoint_{epoch}"
+                checkpoint_dir_tmp = (
+                    checkpoints_dir / f"test_{max_test_i}/config_{i}/checkpoint_{epoch}"
+                )
                 trainer.save(checkpoint_dir_tmp)
                 logger.info(
                     "Checkpoint saved at {}",
@@ -206,11 +215,11 @@ if __name__ == "__main__":
 
         for run in list(runs):
             if len(list(run.glob("config_*"))) > 0:
-                run_config = run / "config_0" 
-            else: 
+                run_config = run / "config_0"
+            else:
                 run_config = run
-                
-            logger.info("Loading run {}", run_config)            
+
+            logger.info("Loading run {}", run_config)
             checkpoints = Path.glob(run_config, "epoch_*")
 
             for checkpoint in list(checkpoints)[::-1]:
@@ -302,7 +311,9 @@ if __name__ == "__main__":
             options=pso_options,
         )
         best_hyperparameters, best_fitness = optimizer.optimize(
-            lambda hyperconfigs: train_and_evaluate(config, hyper_configs=hyperconfigs, checkpoint = checkpoint),
+            lambda hyperconfigs: train_and_evaluate(
+                config, hyper_configs=hyperconfigs, checkpoint=checkpoint
+            ),
             iters=config["run"]["hyper_par_iter"],
         )
         print("Best hyperparameters", best_hyperparameters)

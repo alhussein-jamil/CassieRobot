@@ -1,6 +1,6 @@
 import logging as log
 from copy import deepcopy
-from typing import Any, Dict, Tuple, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import mujoco as m
 import numpy as np
@@ -8,11 +8,8 @@ import torch
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
-from ray.rllib.env import BaseEnv
-from ray.rllib.evaluation import Episode, RolloutWorker
+from ray.rllib.evaluation import Episode
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
-from ray.rllib.policy import Policy
-from ray.rllib.policy.sample_batch import SampleBatch
 from pathlib import Path
 from .constants import (
     multiplicators,
@@ -33,6 +30,7 @@ from .constants import (
 )
 from .functions import action_dist, p_between_von_mises
 from numba import jit
+
 if TYPE_CHECKING:
     import numpy.typing as npt
 
@@ -132,7 +130,6 @@ class CassieEnv(MujocoEnv):
         self.z_cmd_vel = env_config.get("z_cmd_vel", DEFAULT_CONFIG["z_cmd_vel"])
         self.model_file = env_config.get("model", "cassie")
 
-
         # Massive Speedup by storing the von mises values and reusing them
         phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
         self.von_mises_values_swing = np.array(
@@ -196,8 +193,8 @@ class CassieEnv(MujocoEnv):
             frame_skip=env_config.get("frame_skip", 40),
             render_mode=env_config.get("render_mode", None),
             observation_space=self.observation_space,
-            width = env_config.get("width", 1920),
-            height = env_config.get("height", 1080),
+            width=env_config.get("width", 1920),
+            height=env_config.get("height", 1080),
         )
         self.render_mode = "rgb_array"
         self.exponents_ranges = dict(
@@ -303,7 +300,7 @@ class CassieEnv(MujocoEnv):
             self.done_n = 10.0
 
         return self.isdone == "not done"
-    
+
     @property
     def terminated(self):
         terminated = (
@@ -312,9 +309,9 @@ class CassieEnv(MujocoEnv):
             else False
         )
         return terminated
-    
+
     @staticmethod
-    def _get_symmetric_obs(obs :"npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
+    def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
         symmetric_obs = deepcopy(obs)
 
         # sensors
@@ -344,12 +341,11 @@ class CassieEnv(MujocoEnv):
         symmetric_obs[38] = -obs[38]
 
         return symmetric_obs
-    
-
 
     # step in time
-    def step(self, action: "npt.NDArray[np.float32]") -> tuple[
-        "npt.NDArray[np.float32]", float, bool, bool, dict[str, Any] ]:
+    def step(
+        self, action: "npt.NDArray[np.float32]"
+    ) -> tuple["npt.NDArray[np.float32]", float, bool, bool, dict[str, Any]]:
         self.symmetric_turn = self.phi < 0.5
         if self.symmetric_turn:
             act = self.symmetric_action(action)
@@ -432,13 +428,12 @@ class CassieEnv(MujocoEnv):
     @staticmethod
     def symmetric_action(action):
         return np.array([*action[5:], *action[:5]])
-    
+
     @staticmethod
     def normalize_reward(rewards: dict[str, float], reward_coeffs: dict[str, float]):
         return sum([rewards[k] * reward_coeffs[k] for k in rewards.keys()]) / sum(
             [value for key, value in reward_coeffs.items() if key in rewards.keys()]
         )
-
 
     def _set_obs(self):
         p = np.array(
@@ -463,7 +458,6 @@ class CassieEnv(MujocoEnv):
     def _get_obs(self):
         return self.obs
 
-
     def _normalize_quantity(self, name, q):
         k = 5.0
         # Update the range
@@ -484,9 +478,10 @@ class CassieEnv(MujocoEnv):
             self.exponents_ranges[name][1] - self.exponents_ranges[name][0] + 1e-6
         )
 
-
     # computes the reward
-    def _compute_reward(self, action: "npt.NDArray[np.float32]"):  # , symmetric_action):
+    def _compute_reward(
+        self, action: "npt.NDArray[np.float32]"
+    ):  # , symmetric_action):
         # Extract some proxies
         qpos = self.data.qpos.flat.copy()
         qvel = self.data.qvel.flat.copy()
@@ -655,8 +650,6 @@ class CassieEnv(MujocoEnv):
             ),
         }
         return reward, rewards, metrics
-
-
 
 
 class MyCallbacks(DefaultCallbacks):
