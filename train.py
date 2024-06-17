@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 import os
 import mediapy as media
+import numpy as np
 import ray
 import torch
 import yaml
@@ -145,11 +146,16 @@ def evaluate(trainer: PPO, env: gym.Env, epoch: int, i: int, test_dir: str | Pat
     done = False
     frames = []
     fps = env.metadata["render_fps"] // 2
+    action = np.zeros(env.action_space.shape[0])
     while not done:
         # Increment steps
         steps += 1
         obs = filterfn(obs)
-        action = trainer.compute_single_action(obs)
+        try:
+            action = trainer.compute_single_action(obs)
+        except ValueError as e:
+            logger.error("Value error: {}", e)
+
         obs, _, done, _, _ = env.step(action)
         frame = env.render()
         frames.append(frame)

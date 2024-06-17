@@ -45,7 +45,7 @@ DEFAULT_CONFIG = {
     "z_cmd_vel": 0,
     "terminate_when_unhealthy": True,
     "max_simulation_steps": 400,
-    "pelvis_height": [0.6, 1.5],
+    "pelvis_height": [0.75, 1.25],
     "feet_distance_x": 1.0,
     "feet_distance_y": 0.5,
     "feet_distance_z": 0.5,
@@ -240,7 +240,7 @@ class CassieEnv(MujocoEnv):
         self.done_n = 0.0
 
         self.isdone = "not done"
-        if self.contact and not min_z < self.data.xpos[PELVIS, 2] < max_z:
+        if (self.contact and self.data.xpos[PELVIS, 2] > max_z) or self.data.xpos[PELVIS, 2] < min_z:
             self.isdone = "Pelvis not in range"
             self.done_n = 1.0
         if not self.steps <= self._max_steps:
@@ -512,10 +512,10 @@ class CassieEnv(MujocoEnv):
 
         # check if cassie hit the ground with feet
         if (
-            self.data.xpos[LEFT_FOOT, 2] < 0.05
-            or self.data.xpos[RIGHT_FOOT, 2] < 0.05
-            or np.linalg.norm(self.contact_force_left_foot) > 500
-            or np.linalg.norm(self.contact_force_right_foot) > 500
+            self.data.xpos[LEFT_FOOT, 2] < 0.85
+            or self.data.xpos[RIGHT_FOOT, 2] < 0.85
+            or np.linalg.norm(self.contact_force_left_foot) > 300
+            or np.linalg.norm(self.contact_force_right_foot) > 300
         ):
             self.contact = True
 
