@@ -216,22 +216,17 @@ class CassieEnv(MujocoEnv):
     @staticmethod
     @jit(nopython=True, cache=True)
     def quat_to_rpy(quaternion: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
-        """Convert quaternion to roll, pitch, yaw angles."""
-        x, y, z, w = quaternion
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll = np.arctan2(t0, t1)
-
-        t2 = +2.0 * (w * y - z * x)
-        t2 = np.where(t2 > +1.0, +1.0, t2)
-        t2 = np.where(t2 < -1.0, -1.0, t2)
-        pitch = np.arcsin(t2)
-
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw = np.arctan2(t3, t4)
-
-        return np.array([roll, pitch, yaw])
+        q = quaternion
+        yaw = np.arctan2(
+            2.0 * (q[1] * q[2] + q[3] * q[0]),
+            q[3] * q[3] - q[0] * q[0] - q[1] * q[1] + q[2] * q[2],
+        )
+        pitch = np.arcsin(-2.0 * (q[0] * q[2] - q[3] * q[1]))
+        roll = np.arctan2(
+            2.0 * (q[0] * q[1] + q[3] * q[2]),
+            q[3] * q[3] + q[0] * q[0] - q[1] * q[1] - q[2] * q[2],
+        )
+        return np.array([roll, pitch, yaw], dtype=np.float32)
 
     @property
     def is_healthy(self):
@@ -240,18 +235,24 @@ class CassieEnv(MujocoEnv):
         self.done_n = 0.0
 
         self.isdone = "not done"
-        if (self.contact and self.data.xpos[PELVIS, 2] > max_z) or self.data.xpos[PELVIS, 2] < min_z:
+
+        if (self.contact and self.data.xpos[PELVIS, 2] > max_z) or self.data.xpos[
+            PELVIS, 2
+        ] < min_z:
             self.isdone = "Pelvis not in range"
             self.done_n = 1.0
+
         if not self.steps <= self._max_steps:
             self.isdone = "Max steps reached"
             self.done_n = 2.0
+
         if (
             not abs(self.data.xpos[LEFT_FOOT, 0] - self.data.xpos[RIGHT_FOOT, 0])
             < self._healthy_feet_distance_x
         ):
             self.isdone = "Feet distance out of range along x-axis"
             self.done_n = 3.0
+
         if (
             not 0.0
             < self.data.xpos[RIGHT_FOOT, 1] - self.data.xpos[LEFT_FOOT, 1]
@@ -265,6 +266,7 @@ class CassieEnv(MujocoEnv):
         ):
             self.isdone = "Feet distance out of range along z-axis"
             self.done_n = 4.0
+
         if (
             self.contact
             and self.data.xpos[LEFT_FOOT, 2] >= self._healthy_feet_height
@@ -274,21 +276,23 @@ class CassieEnv(MujocoEnv):
         ):
             self.isdone = "Both Feet not on the ground"
             self.done_n = 5.0
+
         if (
             not self._healthy_dis_to_pelvis
             < self.data.xpos[PELVIS, 2] - self.data.xpos[LEFT_FOOT, 2]
         ):
             self.isdone = "Left foot too close to pelvis"
             self.done_n = 6.0
+
         if (
             not self._healthy_dis_to_pelvis
             < self.data.xpos[PELVIS, 2] - self.data.xpos[RIGHT_FOOT, 2]
         ):
             self.isdone = "Right foot too close to pelvis"
             self.done_n = 7.0
+
         pelvis_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
         rpy_diff = np.abs(pelvis_rpy - self.init_rpy)
-
         if rpy_diff[0] > self.max_roll:
             self.isdone = "Roll too high"
             self.done_n = 8.0
@@ -418,7 +422,6 @@ class CassieEnv(MujocoEnv):
         )
 
         self.set_state(qpos, qvel)
-
         self.init_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
 
         self._set_obs()
@@ -473,15 +476,14 @@ class CassieEnv(MujocoEnv):
             )
             / k,
         )
+
         # Normalize the quantity
         return (q - self.exponents_ranges[name][0]) / (
             self.exponents_ranges[name][1] - self.exponents_ranges[name][0] + 1e-6
         )
 
     # computes the reward
-    def _compute_reward(
-        self, action: "npt.NDArray[np.float32]"
-    ):  # , symmetric_action):
+    def _compute_reward(self, action: "npt.NDArray[np.float32]"):
         # Extract some proxies
         qpos = self.data.qpos.flat.copy()
         qvel = self.data.qvel.flat.copy()
@@ -569,6 +571,7 @@ class CassieEnv(MujocoEnv):
                 ),
             )
         )
+
         q_orientation = np.exp(
             -6.0
             * self._normalize_quantity(
@@ -630,7 +633,9 @@ class CassieEnv(MujocoEnv):
             "r_smooth": r_smooth,
         }
 
-        reward = self.normalize_reward(rewards, self.reward_coeffs)
+        reward = self.normalize_reward(
+            rewards, self.reward_coeffs
+        ) + self.reward_coeffs.get("bias", 1.0)
 
         metrics = {
             "dis_x": self.data.geom_xpos[16, 0],
