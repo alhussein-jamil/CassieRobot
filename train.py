@@ -76,7 +76,13 @@ def train_and_evaluate(
         # Build trainer
         if not clean_run:
             if load:
-                trainer.restore(str(checkpoint).replace("\\", "/"))
+                try:
+                    trainer.restore(str(checkpoint).replace("\\", "/"))
+                    logger.info("Checkpoint loaded from {}", checkpoint)
+                except Exception as e:
+                    logger.error(
+                        "Error loading checkpoint: {}, starting from scratch", e
+                    )
 
         logger.info("Creating test environment")
         env = CassieEnv(
@@ -159,7 +165,8 @@ def evaluate(trainer: PPO, env: gym.Env, epoch: int, i: int, test_dir: str | Pat
         obs, _, done, _, _ = env.step(action)
         frame = env.render()
         frames.append(frame)
-
+    logger.info("Episode finished after {} steps", steps)
+    logger.info("Episode done reason: {}", env.isdone)
     # Save video
     media.write_video(video_path, frames, fps=fps)
     logger.info("Test saved at {}", video_path)
@@ -226,7 +233,7 @@ if __name__ == "__main__":
                 run_config = run
 
             logger.info("Loading run {}", run_config)
-            checkpoints = Path.glob(run_config, "epoch_*")
+            checkpoints = Path.glob(run_config, "checkpoint_*")
 
             for checkpoint in list(checkpoints)[::-1]:
                 logger.info("Loading checkpoint {}", checkpoint)
