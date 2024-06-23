@@ -29,7 +29,7 @@ from .constants import (
     c_swing_frc,
 )
 from .functions import action_dist, p_between_von_mises
-from numba import jit
+import numba as nb
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 log.basicConfig(level=log.INFO)
 
 DEFAULT_CONFIG = {
+    "symmetric_regulation": True,
     "steps_per_cycle": 30,
     "r": 1.0,
     "kappa": 25,
@@ -54,6 +55,9 @@ DEFAULT_CONFIG = {
     "model": "cassie",
     "render_mode": "rgb_array",
     "reset_noise_scale": 0.01,
+    "force_max_norm": 0.0,
+    "push_freq": 0,
+    "push_duration": 0,
     "bias": 1.0,
     "r_biped": 4.0,
     "r_cmd": 3.0,
@@ -77,15 +81,12 @@ class CassieEnv(MujocoEnv):
         "render_fps": 100,
     }
 
-    @staticmethod
-    def denormalize_actions(action):
-        return (
-            action * (high_action - low_action) / 2.0 + (high_action + low_action) / 2.0
-        )
-
     def __init__(
         self, env_config: dict[str, Any], model_dir: str | Path = "assets/model"
     ):
+        self.symmetric_regulation = env_config.get(
+            "symmetric_regulation", DEFAULT_CONFIG["symmetric_regulation"]
+        )
         self._terminate_when_unhealthy = env_config.get(
             "terminate_when_unhealthy", DEFAULT_CONFIG["terminate_when_unhealthy"]
         )
@@ -165,6 +166,16 @@ class CassieEnv(MujocoEnv):
         self._reset_noise_scale = env_config.get(
             "reset_noise_scale", DEFAULT_CONFIG["reset_noise_scale"]
         )
+        self._force_max_norm = env_config.get(
+            "force_max_norm", DEFAULT_CONFIG["force_max_norm"]
+        )
+        self._push_freq = env_config.get("push_freq", DEFAULT_CONFIG["push_freq"])
+        self._push_duration = env_config.get(
+            "push_duration", DEFAULT_CONFIG["push_duration"]
+        )
+
+        self._push_probability = 1.0 / self._push_freq if self._push_freq > 0 else 0.0
+        self._pushing = -1
 
         self.phi, self.steps = 0, 0
 
@@ -214,8 +225,17 @@ class CassieEnv(MujocoEnv):
         )
 
     @staticmethod
-    @jit(nopython=True, cache=True)
-    def quat_to_rpy(quaternion: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
+    @nb.jit(nopython=True, cache=True)
+    def denormalize_actions(action):
+        return (
+            action * (high_action - low_action) / 2.0 + (high_action + low_action) / 2.0
+        )
+
+    @staticmethod
+    @nb.jit(nopython=True, cache=True)
+    def quat_to_rpy(
+        quaternion: "npt.NDArray[np.float32]", radians: bool = True
+    ) -> "npt.NDArray[np.float32]":
         q = quaternion
         yaw = np.arctan2(
             2.0 * (q[1] * q[2] + q[3] * q[0]),
@@ -226,7 +246,11 @@ class CassieEnv(MujocoEnv):
             2.0 * (q[0] * q[1] + q[3] * q[2]),
             q[3] * q[3] + q[0] * q[0] - q[1] * q[1] - q[2] * q[2],
         )
-        return np.array([roll, pitch, yaw], dtype=np.float32)
+        return (
+            np.array([roll, pitch, yaw], dtype=np.float32)
+            if radians
+            else np.degrees(np.array([roll, pitch, yaw], dtype=np.float32))
+        )
 
     @property
     def is_healthy(self):
@@ -333,6 +357,9 @@ class CassieEnv(MujocoEnv):
         # pelvis acceleration symmetric along xoz
         symmetric_obs[24] = -obs[24]
 
+        # Magnotometer symmetric along xoz
+        symmetric_obs[27] = -obs[27]
+
         # command symmetric along xoz
         symmetric_obs[30] = -obs[30]
 
@@ -346,16 +373,28 @@ class CassieEnv(MujocoEnv):
 
         return symmetric_obs
 
+    @staticmethod
+    def symmetric_action(action):
+        return np.array([*action[5:], *action[:5]])
+
+    @staticmethod
+    @nb.jit(nopython=True, cache=True)
+    def _normalize_reward(
+        rewards: "npt.NDArray[np.float32]", reward_coeffs: "npt.NDArray[np.float32]"
+    ) -> float:
+        return np.sum(rewards * reward_coeffs) / np.sum(reward_coeffs)
+
     # step in time
     def step(
         self, action: "npt.NDArray[np.float32]"
     ) -> tuple["npt.NDArray[np.float32]", float, bool, bool, dict[str, Any]]:
-        self.symmetric_turn = self.phi < 0.5
-        if self.symmetric_turn:
+        # self.symmetric_turn = self.phi < 0.5
+        if self.symmetric_turn and self.symmetric_regulation:
             act = self.symmetric_action(action)
         else:
             act = action
-        act = self.denormalize_actions(act)
+            
+        # act = self.denormalize_actions(act)
         self.do_simulation(act, self.frame_skip)
 
         m.mj_step(self.model, self.data)  # type: ignore
@@ -363,7 +402,8 @@ class CassieEnv(MujocoEnv):
         reward, rewards, metrics = self._compute_reward(act)  # , sym_act)
 
         self._set_obs()
-        if self.symmetric_turn:
+        self.symmetric_turn = not self.symmetric_turn
+        if self.symmetric_turn and self.symmetric_regulation:
             observation = self._get_symmetric_obs(self.obs)
         else:
             observation = self.obs
@@ -383,7 +423,25 @@ class CassieEnv(MujocoEnv):
             "height": self.data.qpos[2],
         }
 
-        info["other_metrics"] = metrics
+        # info["other_metrics"] = metrics
+
+        # Push the robot
+        random_force_xy = np.random.uniform(
+            -self._force_max_norm, self._force_max_norm, size=2
+        )
+        full_force = np.concatenate([random_force_xy, np.array([0.0] * 4)])
+
+        sampled = np.random.uniform(0, 1)
+        if sampled < self._push_probability and self._pushing == -1:
+            self._pushing = 0
+
+        if (
+            -1 < self._pushing < self._push_duration
+        ):  # Push for self._push_duration * frame_skip * 0.002 seconds(0.002 is the time step of the simulation)
+            self.data.xfrc_applied[PELVIS] = full_force
+            self._pushing += 1
+        else:
+            self._pushing = -1
 
         return observation, reward, terminated, False, info
 
@@ -409,9 +467,11 @@ class CassieEnv(MujocoEnv):
 
         self.contact = False
 
-        self.symmetric_turn = self.phi < 0.5
-
+        # self.symmetric_turn = self.phi < 0.5
+        self.symmetric_turn = np.random.choice([True, False])
         self.command = np.array([self.x_cmd_vel, self.y_cmd_vel])
+
+        self._pushing = -1
 
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq
@@ -422,21 +482,25 @@ class CassieEnv(MujocoEnv):
         )
 
         self.set_state(qpos, qvel)
+        self.data.xfrc_applied[PELVIS] = np.zeros(6)
         self.init_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
 
         self._set_obs()
 
-        return self._get_symmetric_obs(self.obs) if self.symmetric_turn else self.obs
-
-    @staticmethod
-    def symmetric_action(action):
-        return np.array([*action[5:], *action[:5]])
-
-    @staticmethod
-    def normalize_reward(rewards: dict[str, float], reward_coeffs: dict[str, float]):
-        return sum([rewards[k] * reward_coeffs[k] for k in rewards.keys()]) / sum(
-            [value for key, value in reward_coeffs.items() if key in rewards.keys()]
+        return (
+            self._get_symmetric_obs(self.obs)
+            if self.symmetric_turn and self.symmetric_regulation
+            else self.obs
         )
+
+    def normalize_reward(
+        self, rewards: dict[str, float], reward_coeffs: dict[str, float]
+    ):
+        reward_values = np.array([rewards[k] for k in rewards.keys()])
+        reward_coeffs_values = np.array(
+            [reward_coeffs[k] for k in rewards.keys() if k in reward_coeffs.keys()]
+        )
+        return self._normalize_reward(reward_values, reward_coeffs_values)
 
     def _set_obs(self):
         p = np.array(
@@ -514,10 +578,10 @@ class CassieEnv(MujocoEnv):
 
         # check if cassie hit the ground with feet
         if (
-            self.data.xpos[LEFT_FOOT, 2] < 0.85
-            or self.data.xpos[RIGHT_FOOT, 2] < 0.85
-            or np.linalg.norm(self.contact_force_left_foot) > 300
-            or np.linalg.norm(self.contact_force_right_foot) > 300
+            self.data.xpos[LEFT_FOOT, 2] < 0.12
+            or self.data.xpos[RIGHT_FOOT, 2] < 0.12
+            or np.linalg.norm(self.contact_force_left_foot) > 100
+            or np.linalg.norm(self.contact_force_right_foot) > 100
         ):
             self.contact = True
 

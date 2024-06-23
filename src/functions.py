@@ -2,6 +2,7 @@ import numpy as np
 from scipy import stats
 from .constants import obs_ranges, act_ranges
 from typing import TYPE_CHECKING
+import numba as nb
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -18,6 +19,7 @@ def p_between_von_mises(a, b, kappa, x):
     return p_between
 
 
+@nb.jit(nopython=True, cache=True)
 def action_dist(
     a: "npt.NDArray[np.float64]", b: "npt.NDArray[np.float64]"
 ) -> "npt.NDArray[np.float64]":
@@ -29,11 +31,13 @@ def action_dist(
     return np.sqrt(diff)
 
 
+@nb.jit(nopython=True, cache=True)
 def normalize(name: str, value: float) -> float:
     # normalize the value to be between 0 and 1
     return (value - obs_ranges[name][0]) / (obs_ranges[name][1] - obs_ranges[name][0])
 
 
+@nb.jit(nopython=True, cache=True)
 def von_mises_approx(a, b, kappa, x):
     KappaEQ = 6.072980 * np.log(0.055739 * kappa + 2.365671) + -3.936459
     return 1 / 2 + 1 / 2 * (np.tanh(KappaEQ * np.sin(2 * np.pi * x)))
@@ -71,6 +75,7 @@ def flatten_dict(nested_dict, parent=""):
     return flat_dict
 
 
+@nb.jit(nopython=True, cache=True)
 def fill_dict_with_list(list_values, dictionary, index=0):
     """
     Fills a nested dict with a list
