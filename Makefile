@@ -1,21 +1,33 @@
 .PHONY: install webapp format
-PYTHON := python3.10
+
 # Detect OS
 OS := $(shell uname)
-ifeq ($(OS),Linux)
-    PYTHONVENV= venv/bin/python
-	TENSORBOARD = venv/bin/tensorboard
+ifeq ($(OS), Linux)
+	VENVNAME=venv_linux
+    PYTHONVENV=$(VENVNAME)/bin/python
+    TENSORBOARD=$(VENVNAME)/bin/tensorboard
+	PYTHON=python3.10
+    RM=rm -rf
+else ifeq ($(OS), Darwin)
+	VENVNAME=venv_mac
+    PYTHONVENV=$(VENVNAME)/bin/python
+    TENSORBOARD=$(VENVNAME)/bin/tensorboard
+	PYTHON=python3.10
+    RM=rm -rf
 else
-    PYTHONVENV = venv/Scripts/python.exe
-	TENSORBOARD = venv/Scripts/tensorboard
+	VENVNAME=venv_win
+    PYTHONVENV=$(VENVNAME)/Scripts/python
+    TENSORBOARD=$(VENVNAME)/Scripts/tensorboard
+	PYTHON=powershell python3.10
+    RM=powershell Remove-Item -Recurse -Force
 endif
 
 ## Install environment
 install:
 	@echo ">> Delete previous venv"
-	@rm -rf venv/
+	@$(RM) $(VENVNAME) || true
 	@echo ">> Create venv"
-	@$(PYTHON) -m venv venv
+	$(PYTHON) -m venv $(VENVNAME)
 	@$(PYTHONVENV) -m pip install -U pip
 	@echo ">> Installing dependencies"
 	@$(PYTHONVENV) -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
@@ -25,13 +37,16 @@ install:
 train: 
 	@PYTHONWARNINGS="ignore" $(PYTHONVENV) -m train
 
+clean_train:
+	@PYTHONWARNINGS="ignore" $(PYTHONVENV) -m train -cleanrun
+
 ## Run Tensorboard
 tensorboard:
 	@$(TENSORBOARD) --logdir output/ray_results
 
 ## Format files with ruff
 format:
-	$(PYTHONVENV) -m ruff format .  || exit 0
+	$(PYTHONVENV) -m ruff format . || exit 0
 	$(PYTHONVENV) -m ruff check . --fix --unsafe-fixes --exit-zero
 
 #################################################################################
