@@ -393,7 +393,7 @@ class CassieEnv(MujocoEnv):
             act = self.symmetric_action(action)
         else:
             act = action
-            
+
         # act = self.denormalize_actions(act)
         self.do_simulation(act, self.frame_skip)
 
@@ -578,9 +578,9 @@ class CassieEnv(MujocoEnv):
 
         # check if cassie hit the ground with feet
         if (
-            self.data.xpos[LEFT_FOOT, 2] < 0.12
-            or self.data.xpos[RIGHT_FOOT, 2] < 0.12
-            or np.linalg.norm(self.contact_force_left_foot) > 100
+            # self.data.xpos[LEFT_FOOT, 2] < 0.08
+            # or self.data.xpos[RIGHT_FOOT, 2] < 0.08
+            np.linalg.norm(self.contact_force_left_foot) > 100
             or np.linalg.norm(self.contact_force_right_foot) > 100
         ):
             self.contact = True

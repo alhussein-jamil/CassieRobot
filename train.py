@@ -51,6 +51,7 @@ def build_trainer(config: dict[str, Any], config_n: int, test_n: int) -> PPO:
         .framework(**training_config.get("framework", {}))
         .resources(**training_config.get("resources", {}))
         .evaluation(**training_config.get("evaluation", {}))
+        .fault_tolerance(**training_config.get("fault_tolerance", {}))
         .callbacks(callbacks_class=MyCallbacks)
     ).build()
     return trainer
@@ -65,7 +66,7 @@ def train_and_evaluate(
     global max_test_i
 
     ray_results_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results/test_{max_test_i}"
-    ray_results_dir.mkdir(exist_ok=True)
+    ray_results_dir.mkdir(exist_ok=True, parents=True)
 
     metrics = []
     for i, hyper_config in enumerate(hyper_configs):
@@ -94,7 +95,10 @@ def train_and_evaluate(
 
                 logger.info("Loading run {}", run_config)
                 checkpoints = Path.glob(run_config, "checkpoint_*")
-
+                # sort by the number of the checkpoint
+                checkpoints = sorted(
+                    checkpoints, key=lambda x: int(x.stem.split("_")[-1])
+                )
                 test_n = int(run.stem.split("_")[-1])
                 for checkpoint in list(checkpoints)[::-1]:
                     logger.info("Loading checkpoint {}", checkpoint)
@@ -111,7 +115,9 @@ def train_and_evaluate(
             if load:
                 try:
                     trainer.restore(str(checkpoint).replace("\\", "/"))
-                    logger.info("Checkpoint loaded from {}", checkpoint)
+                    logger.info(
+                        "Checkpoint loaded from {}", str(checkpoint).replace("\\", "/")
+                    )
                 except Exception as e:
                     logger.error(
                         "Error loading checkpoint: {}, starting from scratch", e
@@ -213,7 +219,7 @@ def custom_log_creator(custom_path: str | Path, custom_str: str):
     def logger_creator(config):
         if not os.path.exists(custom_path):
             os.makedirs(custom_path)
-        logdir = Path(custom_path)  / custom_str
+        logdir = Path(custom_path) / custom_str
         logdir.mkdir(exist_ok=True)
         return UnifiedLogger(config, logdir, loggers=None)
 
@@ -248,7 +254,6 @@ if __name__ == "__main__":
     ray.init(ignore_reinit_error=True, num_gpus=1)
 
     clean_run = args.cleanrun
-
 
     if args.simdir is not None:
         sim_dir = args.simdir
@@ -294,8 +299,16 @@ if __name__ == "__main__":
     if not os.path.exists(sim_dir):
         os.makedirs(sim_dir)
         # Find the latest directory named test_i in the sim directory
+
+    if not os.path.exists(checkpoints_dir):
+        os.makedirs(checkpoints_dir)
+
     latest_directory = max(
-        [int(d.split("_")[-1]) for d in os.listdir(checkpoints_dir) if d.startswith("test_")],
+        [
+            int(d.split("_")[-1])
+            for d in os.listdir(checkpoints_dir)
+            if d.startswith("test_")
+        ],
         default=0,
     )
     max_test_i = latest_directory + 1
@@ -331,9 +344,7 @@ if __name__ == "__main__":
             options=pso_options,
         )
         best_hyperparameters, best_fitness = optimizer.optimize(
-            lambda hyperconfigs: train_and_evaluate(
-                config, hyper_configs=hyperconfigs
-            ),
+            lambda hyperconfigs: train_and_evaluate(config, hyper_configs=hyperconfigs),
             iters=config["run"]["hyper_par_iter"],
         )
         print("Best hyperparameters", best_hyperparameters)
