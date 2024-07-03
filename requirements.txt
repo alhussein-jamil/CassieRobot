@@ -7,3 +7,4 @@ ruff
 loguru
 tensorboard
 numba
+tensorboard

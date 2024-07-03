@@ -5,36 +5,41 @@ training:
     normalize_actions: true
     env_config: 
       # The constants are defined here
+      symmetric_regulation: true
       steps_per_cycle: 20
       r : 0.6
       kappa: 20
-      x_cmd_vel: 0.5
+      x_cmd_vel: 1.5
       y_cmd_vel: 0.0
       z_cmd_vel: 0
       terminate_when_unhealthy: true
-      max_simulation_steps: 500
-      pelvis_height: [0.65,1.35]
-      feet_distance_x: 1.0
+      max_simulation_steps: 300
+      pelvis_height: [0.65,1.25]
+      feet_distance_x: 0.8
       feet_distance_y: 0.6
       feet_distance_z: 0.5
-      feet_pelvis_height: 0.1
+      feet_pelvis_height: 0.25
       max_roll: 2.0
       max_pitch: 2.0
       max_yaw: 10.0
-      feet_height: 0.30
+      feet_height: 0.08
       model: cassie
-      frame_skip: 40
+      frame_skip: 20
       render_mode: rgb_array
       width: 1920
       height: 1080
-      reset_noise_scale: 0.04
-      bias: 1.0
-      r_biped: 0.8
+      reset_noise_scale: 0.1
+      force_max_norm: 30.0
+      push_freq: 80 # Every 80 steps
+      push_duration: 5 # 5 steps
+      bias: -0.2 # Make sure reward can be negative
+      r_biped: 0.3
       r_cmd : 1.0
-      r_smooth: 0.2
+      r_smooth: 0.1
     render_env: false
 
   env_runners: 
+    enable_tf1_exec_eagerly: true
     num_env_runners: 20
     num_envs_per_env_runner: 1
     num_cpus_per_env_runner: 1
@@ -50,15 +55,23 @@ training:
   
   fault_tolerance:
     recreate_failed_env_runners: true
-
+    ignore_env_runner_failures: true 
+    restart_failed_sub_environments: true
+    
   training:
 
     gamma: 0.99
-    grad_clip: 40.0
+    grad_clip: 1.0
     train_batch_size: 16384
     model:
       fcnet_hiddens: [256, 256]
-      # fcnet_activation: elu
+      fcnet_activation: elu
+      fcnet_weights_initializer: xavier_uniform_
+      fcnet_bias_initializer: zeros
+      post_fcnet_activation: elu
+      free_log_std: true
+      vf_share_layers: false
+
     optimizer:
       type: adam
         
@@ -70,7 +83,7 @@ training:
 
     kl_coeff: 0.2
 
-    sgd_minibatch_size: 512
+    sgd_minibatch_size: 1024 
 
     num_sgd_iter: 16
 
