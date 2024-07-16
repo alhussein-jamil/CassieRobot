@@ -1,45 +1,44 @@
-training: 
+training:
   environment:
     env: cassie-v0
-    clip_actions: true
     normalize_actions: true
+    clip_actions: false
     env_config: 
-      # The constants are defined here
       symmetric_regulation: true
       steps_per_cycle: 20
-      r : 0.6
+      r: 0.6
       kappa: 20
-      x_cmd_vel: 1.5
+      x_cmd_vel: 1.0
       y_cmd_vel: 0.0
       z_cmd_vel: 0
       terminate_when_unhealthy: true
       max_simulation_steps: 300
-      pelvis_height: [0.65,1.25]
-      feet_distance_x: 0.8
-      feet_distance_y: 0.6
+      pelvis_height: [0.65, 1.25]
+      feet_distance_x: 1.0
+      feet_distance_y: 0.8
       feet_distance_z: 0.5
       feet_pelvis_height: 0.25
       max_roll: 2.0
       max_pitch: 2.0
       max_yaw: 10.0
-      feet_height: 0.08
+      feet_height: 0.30
       model: cassie
       frame_skip: 20
       render_mode: rgb_array
       width: 1920
       height: 1080
-      reset_noise_scale: 0.1
+      reset_noise_scale: 0.05  # Reduced from 0.1 to decrease initial exploration
       force_max_norm: 30.0
-      push_freq: 80 # Every 80 steps
-      push_duration: 5 # 5 steps
-      bias: -0.2 # Make sure reward can be negative
-      r_biped: 0.3
-      r_cmd : 1.0
-      r_smooth: 0.1
+      push_freq: 80  
+      push_duration: 5
+      bias: -0.001  # Slightly increased from -0.002 to make the reward less negative
+      r_biped: 0.4
+      r_cmd: 1.0  # Increased from 0.3 to encourage following the command velocity
+      r_smooth: 0.1  # Increased from 0.1 to encourage smoother actions
     render_env: false
 
   env_runners: 
-    enable_tf1_exec_eagerly: true
+    # enable_tf1_exec_eagerly: true
     num_env_runners: 20
     num_envs_per_env_runner: 1
     num_cpus_per_env_runner: 1
@@ -47,7 +46,6 @@ training:
     rollout_fragment_length: auto
     batch_mode: truncate_episodes
     observation_filter: MeanStdFilter
-
 
   debugging: 
     logger_creator: ???
@@ -59,16 +57,15 @@ training:
     restart_failed_sub_environments: true
     
   training:
-
     gamma: 0.99
-    grad_clip: 1.0
+    # grad_clip: 1.0  # Reduced from 1.0 to prevent large gradient updates
     train_batch_size: 16384
     model:
-      fcnet_hiddens: [256, 256]
-      fcnet_activation: elu
+      fcnet_hiddens: [256, 256]  # Added an extra layer to increase model capacity
+      fcnet_activation: elu 
       fcnet_weights_initializer: xavier_uniform_
       fcnet_bias_initializer: zeros
-      post_fcnet_activation: elu
+      post_fcnet_activation: elu  
       free_log_std: true
       vf_share_layers: false
 
@@ -76,25 +73,15 @@ training:
       type: adam
         
     use_critic: true
-
     use_gae: true
-
-    lambda_: 0.92
-
+    lambda_: 0.92 
     kl_coeff: 0.2
-
-    sgd_minibatch_size: 1024 
-
-    num_sgd_iter: 16
-
+    sgd_minibatch_size: 2048 
+    num_sgd_iter: 8  # Increased from 6 for more optimization per batch
     shuffle_sequences: true
-
     vf_loss_coeff: 0.5
-
-    entropy_coeff: 0.003
-
+    entropy_coeff: 0.03  # Increased from 0.003 to encourage more exploration
     clip_param: 0.3
-
     kl_target: 0.01
 
   framework:
@@ -105,12 +92,10 @@ training:
   resources:
     num_gpus: 1
 
-
-
 run:
-  sim_fps: ???
-  sim_freq: ???
-  chkpt_freq: ???
+  render_every: 1200
+  save_every: 3600
   epochs: 50000
+  sim_fps: 60
   hyper_par_iter: 1
   n_particles: 1

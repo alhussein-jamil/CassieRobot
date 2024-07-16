@@ -1,0 +1,93 @@
+training:
+  # Environment configuration
+  env:
+    id: cassie-v0  # This should be registered with gym.register()
+    env_config:
+      symmetric_regulation: true
+      steps_per_cycle: 20
+      r: 0.6
+      kappa: 20
+      x_cmd_vel: 1.5
+      y_cmd_vel: 0.0
+      z_cmd_vel: 0
+      terminate_when_unhealthy: true
+      max_simulation_steps: 300
+      pelvis_height: [0.65, 1.25]
+      feet_distance_x: 0.8
+      feet_distance_y: 0.6
+      feet_distance_z: 0.5
+      feet_pelvis_height: 0.25
+      max_roll: 1.0
+      max_pitch: 1.0
+      max_yaw: 10.0
+      feet_height: 0.15
+      model: cassie
+      frame_skip: 20
+      render_mode: rgb_array
+      width: 1920
+      height: 1080
+      reset_noise_scale: 0.03
+      force_max_norm: 30.0
+      push_freq: 80
+      push_duration: 5
+      bias: -0.001
+      r_biped: 0.8
+      r_cmd: 1.0
+      r_smooth: 0.3
+      render_env: false
+
+  # PPO-specific parameters
+  algorithm:
+    name: PPO
+    policy: MlpPolicy
+    learning_rate: 3e-4  # Default Adam learning rate in SB3
+    n_steps: 2048  # Equivalent to rollout_fragment_length
+    batch_size: 64  # Equivalent to sgd_minibatch_size
+    n_epochs: 16  # Equivalent to num_sgd_iter
+    gamma: 0.99
+    gae_lambda: 0.92  # Equivalent to lambda_
+    clip_range: 0.3  # Equivalent to clip_param
+    clip_range_vf: null  # SB3 allows separate clipping for value function
+    ent_coef: 0.003  # Equivalent to entropy_coeff
+    vf_coef: 0.5  # Equivalent to vf_loss_coeff
+    max_grad_norm: 1.0  # Equivalent to grad_clip
+    use_sde: false  # SB3-specific, set to false to match original config
+    sde_sample_freq: -1
+    target_kl: 0.01  # Equivalent to kl_target
+
+  # Policy network configuration
+  policy_kwargs:
+    net_arch: 
+      pi: [256, 256]  # Actor network
+      vf: [256, 256]  # Critic network
+    activation_fn: torch.nn.ELU
+    ortho_init: false  # SB3 uses orthogonal initialization by default
+    log_std_init: 0.0  # Equivalent to free_log_std: true
+
+  # Observation normalization
+  normalize_observations: true  # Equivalent to observation_filter: MeanStdFilter
+
+# Training run configuration
+run:
+  total_timesteps: 50000000  # Equivalent to epochs * train_batch_size
+  log_interval: 1
+  sim_freq: 10000  # Adjust based on your sim_freq
+  n_eval_episodes: 5
+  deterministic_eval: true
+  chkpt_freq: 10000  # Equivalent to save_freq
+  
+# Hardware configuration
+hardware:
+  n_cores: 20  # Adjust based on your system
+  n_gpus: 1
+
+# Logging configuration
+logging:
+  log_path: "./logs"
+  tensorboard_log: "./tensorboard_logs"
+  log_level: "INFO"
+
+# Video recording configuration
+video:
+  video_freq: 50000  # Adjust based on your requirements
+  video_length: 500  # Number of frames to record
