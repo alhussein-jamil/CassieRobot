@@ -2,6 +2,7 @@ import argparse
 import logging as log
 
 from pathlib import Path
+import time
 from typing import Any
 import os
 import mediapy as media
@@ -31,6 +32,12 @@ load = False
 sim_dir = Path.cwd() / f"{OUTPUT_DIR}/simulations"
 checkpoints_dir = Path.cwd() / f"{OUTPUT_DIR}/checkpoints"
 log_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results"
+
+last_checkpoint = time.time() - 10000
+last_simulation = time.time() - 10000
+
+render_every = None
+save_every = None
 
 
 def build_trainer(config: dict[str, Any], config_n: int, test_n: int) -> PPO:
@@ -63,7 +70,7 @@ def train_and_evaluate(
     # checkpoint: str | Path | None = None,
     clean_run: bool = False,
 ):
-    global max_test_i
+    global max_test_i, checkpoint, load, last_checkpoint, last_simulation
 
     ray_results_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results/test_{max_test_i}"
     ray_results_dir.mkdir(exist_ok=True, parents=True)
@@ -160,11 +167,9 @@ def train_and_evaluate(
                 # result["custom_metrics"]["custom_metrics_distance_mean"],
             )
 
-            # if result["episode_len_mean"] < 4:
-            #     break
-
             # Save model every 10 epochs
-            if epoch % checkpoint_frequency == 0:
+            if time.time() - last_checkpoint > save_every:
+                last_checkpoint = time.time()
                 checkpoint_dir_tmp = (
                     checkpoints_dir / f"test_{test_n}/config_{i}/checkpoint_{epoch}"
                 )
@@ -175,7 +180,8 @@ def train_and_evaluate(
                 )
 
             # Run a test every 20 epochs
-            if epoch % simulation_frequency == 0:
+            if time.time() - last_simulation > render_every:
+                last_simulation = time.time()
                 evaluate(trainer, env, epoch, i, test_dir)
 
         max_test_i += 1
@@ -317,18 +323,8 @@ if __name__ == "__main__":
     fps = config["run"]["sim_fps"]
     logger.info("FPS: {}", fps)
 
-    config["run"]["chkpt_freq"] = int(
-        3000000 / config["training"]["training"]["train_batch_size"]
-    )
-    config["run"]["sim_freq"] = int(
-        1500000 / config["training"]["training"]["train_batch_size"]
-    )
-
-    checkpoint_frequency = config["run"]["chkpt_freq"]
-    simulation_frequency = config["run"]["sim_freq"]
-
-    logger.info("Checkpoint frequency: {}", checkpoint_frequency)
-    logger.info("Simulation frequency: {}", simulation_frequency)
+    render_every = config["run"]["render_every"]
+    save_every = config["run"]["save_every"]
 
     if args.swarm:
         # Define PSO options

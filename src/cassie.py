@@ -1,7 +1,7 @@
 import logging as log
-from copy import deepcopy
 from typing import Any, TYPE_CHECKING
 
+import cv2
 import mujoco as m
 import numpy as np
 import torch
@@ -11,10 +11,12 @@ from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.evaluation import Episode
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from pathlib import Path
+import numba as nb
+from collections import OrderedDict
+
+from .functions import action_dist, p_between_von_mises
+
 from .constants import (
-    multiplicators,
-    high_action,
-    low_action,
     PELVIS,
     LEFT_FOOT,
     RIGHT_FOOT,
@@ -27,9 +29,11 @@ from .constants import (
     THETA_RIGHT,
     c_stance_spd,
     c_swing_frc,
+    sensors,
+    full_symmetry_matrix,
+    mass,
+    gravity,
 )
-from .functions import action_dist, p_between_von_mises
-import numba as nb
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -43,7 +47,6 @@ DEFAULT_CONFIG = {
     "kappa": 25,
     "x_cmd_vel": 1.5,
     "y_cmd_vel": 0,
-    "z_cmd_vel": 0,
     "terminate_when_unhealthy": True,
     "max_simulation_steps": 400,
     "pelvis_height": [0.75, 1.25],
@@ -58,7 +61,7 @@ DEFAULT_CONFIG = {
     "force_max_norm": 0.0,
     "push_freq": 0,
     "push_duration": 0,
-    "bias": 1.0,
+    "bias": -0.01,
     "r_biped": 4.0,
     "r_cmd": 3.0,
     "r_smooth": 1.0,
@@ -128,7 +131,6 @@ class CassieEnv(MujocoEnv):
         self.kappa = env_config.get("kappa", DEFAULT_CONFIG["kappa"])
         self.x_cmd_vel = env_config.get("x_cmd_vel", DEFAULT_CONFIG["x_cmd_vel"])
         self.y_cmd_vel = env_config.get("y_cmd_vel", DEFAULT_CONFIG["y_cmd_vel"])
-        self.z_cmd_vel = env_config.get("z_cmd_vel", DEFAULT_CONFIG["z_cmd_vel"])
         self.model_file = env_config.get("model", "cassie")
 
         # Massive Speedup by storing the von mises values and reusing them
@@ -181,55 +183,49 @@ class CassieEnv(MujocoEnv):
 
         self.previous_action = torch.zeros(10)
 
-        self.observation_space_dict = dict(
-            sensors=Box(np.full(29, -np.inf), np.full(29, np.inf)),
-            command=Box(-np.inf, np.inf, shape=(2,)),
-            contact_forces=Box(-np.inf, np.inf, shape=(6,)),
-            clock=Box(-1.0, 1.0, shape=(2,)),
+        observation_space_dict = OrderedDict(
+            [
+                ("actuatorpos", Box(-180.0, 180.0, shape=(10,))),
+                ("jointpos", Box(-180.0, 180.0, shape=(6,))),
+                ("framequat", Box(-1.0, 1.0, shape=(4,))),
+                ("gyro", Box(-np.inf, np.inf, shape=(3,))),
+                ("accelerometer", Box(-np.inf, np.inf, shape=(3,))),
+                ("magnetometer", Box(-np.inf, np.inf, shape=(3,))),
+                ("command", Box(-np.inf, np.inf, shape=(2,))),
+                ("contact_forces", Box(-np.inf, np.inf, shape=(6,))),
+                ("clock", Box(-1.0, 1.0, shape=(2,))),
+            ]
         )
         self.observation_space = Box(
-            low=np.concatenate([x.low for x in self.observation_space_dict.values()]),
-            high=np.concatenate([x.high for x in self.observation_space_dict.values()]),
-        )
-        # self.observation_space = Box(low=-np.inf, high=np.inf, shape=(40,))
-        self.reward_space = Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(5,),
+            low=np.concatenate([x.low for x in observation_space_dict.values()]),
+            high=np.concatenate([x.high for x in observation_space_dict.values()]),
         )
         self.metadata["render_fps"] = 2000 // env_config.get("frame_skip", 40)
         MujocoEnv.__init__(
             self,
             model_path=str(Path(model_dir).absolute() / f"{self.model_file}.xml"),
             frame_skip=env_config.get("frame_skip", 40),
-            render_mode=env_config.get("render_mode", None),
+            render_mode="rgb_array",
             observation_space=self.observation_space,
             width=env_config.get("width", 1920),
             height=env_config.get("height", 1080),
         )
-        self.render_mode = "rgb_array"
+        self.local_render_mode = env_config.get("render_mode", "rgb_array")
         self.exponents_ranges = dict(
             q_vx=(0.0, self.x_cmd_vel),
             q_vy=(0.0, self.y_cmd_vel),
-            q_vz=(0.0, self.z_cmd_vel),
-            q_frc_left=(0.0, 1),
-            q_frc_right=(0.0, 1),
-            q_spd_left=(0.0, 1),
-            q_spd_right=(0.0, 1),
-            q_action=(0.0, 1),
-            pelvis_orientation=(0.0, 1),
-            q_feet_orientation=(0.0, 1),
-            q_torque=(0.0, 1),
-            q_pelvis_acc=(0.0, 1),
-            q_symmetric=(0.0, 1),
+            q_frc_left=(0.0, gravity * mass),
+            q_frc_right=(0.0, gravity * mass),
+            q_spd_left=(0.0, np.real(np.sqrt(self.x_cmd_vel**2 + self.y_cmd_vel**2))),
+            q_spd_right=(0.0, np.real(np.sqrt(self.x_cmd_vel**2 + self.y_cmd_vel**2))),
+            q_action=(0.0, 1.0),
+            pelvis_orientation=(0.0, 1.0),
+            q_feet_orientation=(0.0, 1.0),
+            q_torque=(0.0, np.max(self.action_space.high)),
+            q_pelvis_acc=(0.0, 1.0),
+            q_symmetric=(0.0, 1.0),
         )
-
-    @staticmethod
-    @nb.jit(nopython=True, cache=True)
-    def denormalize_actions(action):
-        return (
-            action * (high_action - low_action) / 2.0 + (high_action + low_action) / 2.0
-        )
+        self.exponents_ranges = { k: (v[0], max(v[1], 0.1)) for k, v in self.exponents_ranges.items() }
 
     @staticmethod
     @nb.jit(nopython=True, cache=True)
@@ -266,7 +262,7 @@ class CassieEnv(MujocoEnv):
             self.isdone = "Pelvis not in range"
             self.done_n = 1.0
 
-        if not self.steps <= self._max_steps:
+        if self.steps > self._max_steps:
             self.isdone = "Max steps reached"
             self.done_n = 2.0
 
@@ -338,40 +334,31 @@ class CassieEnv(MujocoEnv):
         )
         return terminated
 
+    @property
+    def truncated(self):
+        return self.steps > self._max_steps
+
+    def _set_obs(self):
+        p = np.array(
+            [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
+        )
+        self.obs = np.concatenate(
+            [
+                np.concatenate(list(self.sensors.values())),  # 0 - 28
+                self.command,  # 29 - 30
+                np.concatenate(
+                    [
+                        self.contact_force_left_foot[:3],
+                        self.contact_force_right_foot[:3],
+                    ]
+                ),  # 31 - 36
+                np.array([*p]),  # 37 - 38
+            ]
+        )
+
     @staticmethod
     def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
-        symmetric_obs = deepcopy(obs)
-
-        # sensors
-        symmetric_obs[0:8] = obs[8:16]
-        symmetric_obs[8:16] = obs[0:8]
-
-        # pelvis quaternion symmetric along xoz (w,x,y,z) become (w,-x,y,-z)
-        symmetric_obs[17] = -obs[17]
-        symmetric_obs[19] = -obs[19]
-
-        # pelvis angular velocity symmetric along xoz
-        symmetric_obs[20] = -obs[20]
-        symmetric_obs[22] = -obs[22]
-
-        # pelvis acceleration symmetric along xoz
-        symmetric_obs[24] = -obs[24]
-
-        # Magnotometer symmetric along xoz
-        symmetric_obs[27] = -obs[27]
-
-        # command symmetric along xoz
-        symmetric_obs[30] = -obs[30]
-
-        # contact forces symmetric along xoz
-        symmetric_obs[31:34] = obs[34:37]
-        symmetric_obs[34:37] = obs[31:34]
-
-        # symmetry of the clock
-        symmetric_obs[37] = -obs[37]
-        symmetric_obs[38] = -obs[38]
-
-        return symmetric_obs
+        return np.dot(full_symmetry_matrix, obs)
 
     @staticmethod
     def symmetric_action(action):
@@ -396,8 +383,6 @@ class CassieEnv(MujocoEnv):
 
         # act = self.denormalize_actions(act)
         self.do_simulation(act, self.frame_skip)
-
-        m.mj_step(self.model, self.data)  # type: ignore
         terminated = self.terminated
         reward, rewards, metrics = self._compute_reward(act)  # , sym_act)
 
@@ -413,7 +398,6 @@ class CassieEnv(MujocoEnv):
         self.phi = self.phi % 1
 
         self.previous_action = act
-        # self.previous_symmetric_action = sym_act
 
         info = {}
         info["custom_rewards"] = rewards
@@ -423,7 +407,7 @@ class CassieEnv(MujocoEnv):
             "height": self.data.qpos[2],
         }
 
-        # info["other_metrics"] = metrics
+        info["other_metrics"] = metrics
 
         # Push the robot
         random_force_xy = np.random.uniform(
@@ -443,15 +427,13 @@ class CassieEnv(MujocoEnv):
         else:
             self._pushing = -1
 
-        return observation, reward, terminated, False, info
+        return observation, reward, terminated, self.truncated, info
 
     # resets the simulation
     def reset_model(self, seed: int = None) -> "npt.NDArray[np.float32]":
+
         # set seed
         np.random.seed(seed)
-
-        m.mj_inverse(self.model, self.data)  # type: ignore
-
         self.done_n = 0.0
 
         noise_low = -self._reset_noise_scale
@@ -460,18 +442,17 @@ class CassieEnv(MujocoEnv):
         self.previous_action = np.zeros(10)
         self.contact_force_left_foot = np.zeros(6)
         self.contact_force_right_foot = np.zeros(6)
+        self.contact = False
 
         # self.phi = np.random.randint(0, self.steps_per_cycle) / self.steps_per_cycle
         self.phi = 0
         self.steps = 0
 
-        self.contact = False
-
-        # self.symmetric_turn = self.phi < 0.5
         self.symmetric_turn = np.random.choice([True, False])
         self.command = np.array([self.x_cmd_vel, self.y_cmd_vel])
 
         self._pushing = -1
+        self.data.xfrc_applied[PELVIS] = np.zeros(6)
 
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq
@@ -482,8 +463,7 @@ class CassieEnv(MujocoEnv):
         )
 
         self.set_state(qpos, qvel)
-        self.data.xfrc_applied[PELVIS] = np.zeros(6)
-        self.init_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
+        self.init_rpy = self.quat_to_rpy(FORWARD_QUARTERNIONS)
 
         self._set_obs()
 
@@ -502,28 +482,36 @@ class CassieEnv(MujocoEnv):
         )
         return self._normalize_reward(reward_values, reward_coeffs_values)
 
-    def _set_obs(self):
-        p = np.array(
-            [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
-        )
+    @property
+    def sensors(self):
+        return {
+            group: np.array(
+                [self.data.sensor(s).data for s in sensors[group]]
+            ).flatten()
+            for group in sensors.keys()
+        }
 
-        sensor_data = self.data.sensordata
-        self.obs = np.concatenate(
-            [
-                sensor_data,  # 0 - 28
-                self.command,  # 29 - 31
-                np.concatenate(
-                    [
-                        self.contact_force_left_foot[:3],
-                        self.contact_force_right_foot[:3],
-                    ]
-                ),  # 32 - 37
-                np.array([*p]),  # 38 - 39
-            ]
-        )
+    def render(self):
+        if self.local_render_mode == "rgb_array":
+            return super().render()
+        else:
+            frame = super().render()
+            height, width = frame.shape[:2]
+            aspect_ratio = width / height
+            initial_width = int(720 * aspect_ratio)
+            cv2.imshow("Cassie", cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            cv2.resizeWindow("Cassie", initial_width, 720)
 
-    def _get_obs(self):
-        return self.obs
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord("q") or key == 27:  # 'q' key or ESC key
+                self.is_running = False
+                cv2.destroyAllWindows()
+                return None
+            elif key == ord("r"):  # 'r' key to reset window size
+                cv2.resizeWindow("Cassie", 800, 600)
+
+            return frame
 
     def _normalize_quantity(self, name, q):
         k = 5.0
@@ -600,10 +588,6 @@ class CassieEnv(MujocoEnv):
                 np.linalg.norm(np.array([qvel[1]]) - np.array([self.command[1]])),
             )
         )
-        q_vz = np.exp(
-            multiplicators["q_vz"]
-            * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])),
-        )
 
         q_left_frc = np.exp(
             -6.0
@@ -629,13 +613,14 @@ class CassieEnv(MujocoEnv):
                 "q_action",
                 float(
                     action_dist(
-                        np.array(action).reshape(1, -1),
-                        np.array(self.previous_action).reshape(1, -1),
+                        a=np.array(action).reshape(1, -1),
+                        b=np.array(self.previous_action).reshape(1, -1),
+                        action_space_low=self.action_space.low,
+                        action_space_high=self.action_space.high,
                     )
                 ),
             )
         )
-
         q_orientation = np.exp(
             -6.0
             * self._normalize_quantity(
@@ -648,7 +633,6 @@ class CassieEnv(MujocoEnv):
         q_torque = np.exp(
             -6.0 * self._normalize_quantity("q_torque", np.linalg.norm(action))
         )
-
         q_pelvis_acc = np.exp(
             -6.0
             * self._normalize_quantity(
@@ -674,9 +658,7 @@ class CassieEnv(MujocoEnv):
         # Compute the rewards
 
         ## Compute Command Reward
-        r_cmd = (+1.0 * q_vx + 0.8 * q_vy + 0.2 * q_orientation + 0.2 * q_vz) / (
-            1.0 + 0.8 + 0.2 + 0.2
-        )
+        r_cmd = (+1.0 * q_vx + 0.8 * q_vy + 0.2 * q_orientation) / (1.0 + 0.8 + 0.2)
 
         ## Compute Smoothness Reward
         r_smooth = (1.0 * q_action_diff + 0.5 * q_torque + 0.5 * q_pelvis_acc) / (
@@ -696,11 +678,9 @@ class CassieEnv(MujocoEnv):
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
         }
-
         reward = self.normalize_reward(
             rewards, self.reward_coeffs
-        ) + self.reward_coeffs.get("bias", 1.0)
-
+        ) + self.reward_coeffs.get("bias", -0.01)
         metrics = {
             "dis_x": self.data.geom_xpos[16, 0],
             "dis_y": self.data.geom_xpos[16, 1],

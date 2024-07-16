@@ -1,6 +1,5 @@
 import numpy as np
 from scipy import stats
-from .constants import obs_ranges, act_ranges
 from typing import TYPE_CHECKING
 import numba as nb
 
@@ -21,20 +20,14 @@ def p_between_von_mises(a, b, kappa, x):
 
 @nb.jit(nopython=True, cache=True)
 def action_dist(
-    a: "npt.NDArray[np.float64]", b: "npt.NDArray[np.float64]"
+    a: "npt.NDArray[np.float64]",
+    b: "npt.NDArray[np.float64]",
+    action_space_low: "npt.NDArray[np.float64]",
+    action_space_high: "npt.NDArray[np.float64]",
 ) -> "npt.NDArray[np.float64]":
-    diff = a - b
-
-    diff /= act_ranges[:, 1] - act_ranges[:, 0]
-    diff = np.sum(np.square(diff), axis=1)
-
-    return np.sqrt(diff)
-
-
-@nb.jit(nopython=True, cache=True)
-def normalize(name: str, value: float) -> float:
-    # normalize the value to be between 0 and 1
-    return (value - obs_ranges[name][0]) / (obs_ranges[name][1] - obs_ranges[name][0])
+    normalized_a = (a - action_space_low) / (action_space_high - action_space_low)
+    normalized_b = (b - action_space_low) / (action_space_high - action_space_low)
+    return np.linalg.norm(normalized_a - normalized_b)
 
 
 @nb.jit(nopython=True, cache=True)
