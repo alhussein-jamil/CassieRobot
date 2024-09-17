@@ -43,7 +43,7 @@ log.basicConfig(level=log.INFO)
 DEFAULT_CONFIG = {
     "symmetric_regulation": True,
     "steps_per_cycle": 30,
-    "r": 1.0,
+    "r": 0.6,
     "kappa": 25,
     "x_cmd_vel": 1.5,
     "y_cmd_vel": 0,
@@ -210,6 +210,7 @@ class CassieEnv(MujocoEnv):
             width=env_config.get("width", 1920),
             height=env_config.get("height", 1080),
         )
+        breakpoint()
         self.local_render_mode = env_config.get("render_mode", "rgb_array")
         self.exponents_ranges = dict(
             q_vx=(0.0, self.x_cmd_vel),
@@ -225,7 +226,9 @@ class CassieEnv(MujocoEnv):
             q_pelvis_acc=(0.0, 1.0),
             q_symmetric=(0.0, 1.0),
         )
-        self.exponents_ranges = { k: (v[0], max(v[1], 0.1)) for k, v in self.exponents_ranges.items() }
+        self.exponents_ranges = {
+            k: (v[0], max(v[1], 0.1)) for k, v in self.exponents_ranges.items()
+        }
 
     @staticmethod
     @nb.jit(nopython=True, cache=True)
@@ -358,7 +361,7 @@ class CassieEnv(MujocoEnv):
 
     @staticmethod
     def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
-        return np.dot(full_symmetry_matrix, obs)
+        return full_symmetry_matrix @ obs
 
     @staticmethod
     def symmetric_action(action):
@@ -431,7 +434,6 @@ class CassieEnv(MujocoEnv):
 
     # resets the simulation
     def reset_model(self, seed: int = None) -> "npt.NDArray[np.float32]":
-
         # set seed
         np.random.seed(seed)
         self.done_n = 0.0
@@ -566,9 +568,9 @@ class CassieEnv(MujocoEnv):
 
         # check if cassie hit the ground with feet
         if (
-            # self.data.xpos[LEFT_FOOT, 2] < 0.08
-            # or self.data.xpos[RIGHT_FOOT, 2] < 0.08
-            np.linalg.norm(self.contact_force_left_foot) > 100
+            self.data.xpos[LEFT_FOOT, 2] < 0.12
+            or self.data.xpos[RIGHT_FOOT, 2] < 0.12
+            or np.linalg.norm(self.contact_force_left_foot) > 100
             or np.linalg.norm(self.contact_force_right_foot) > 100
         ):
             self.contact = True
@@ -642,10 +644,12 @@ class CassieEnv(MujocoEnv):
         )
 
         def i_swing_frc(phi):
+            phi = phi % 1
             index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
             return self.von_mises_values_swing[index]
 
         def i_stance_spd(phi):
+            phi = phi % 1
             index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
             return self.von_mises_values_stance[index]
 

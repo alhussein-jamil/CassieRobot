@@ -195,7 +195,7 @@ def evaluate(trainer: PPO, env: gym.Env, epoch: int, i: int, test_dir: str | Pat
 
     # Run test
     video_path = Path(test_dir) / f"config_{i}/run_{epoch}.mp4"
-    filterfn = trainer.workers.local_worker().filters["default_policy"]
+    filterfn = trainer.env_runner_group.local_worker().filters["default_policy"]
     env.reset()
     obs = env.reset()[0]
     done = False

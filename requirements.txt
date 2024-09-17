@@ -8,3 +8,4 @@ loguru
 tensorboard
 numba
 tensorboard
+opencv-python
