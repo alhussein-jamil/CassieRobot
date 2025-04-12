@@ -1,6 +1,6 @@
 import argparse
 import logging as log
-
+import time
 from pathlib import Path
 from typing import Any
 import os
@@ -15,14 +15,18 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.logger import UnifiedLogger
 from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPO
-from src.functions import fill_dict_with_list, flatten_dict
-from src.cassie import CassieEnv, MyCallbacks
-from src.loader import Loader
+from src.env.functions import fill_dict_with_list, flatten_dict
+from src.env.cassie import CassieEnv
+from src.env.callbacks import MyCallbacks
+from src.training.loader import Loader
 from loguru import logger
 
 torch.cuda.empty_cache()
 
 log.basicConfig(level=log.DEBUG)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
 
 OUTPUT_DIR = "output"
 max_test_i = 0
@@ -31,6 +35,12 @@ load = False
 sim_dir = Path.cwd() / f"{OUTPUT_DIR}/simulations"
 checkpoints_dir = Path.cwd() / f"{OUTPUT_DIR}/checkpoints"
 log_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results"
+
+last_checkpoint_time = time.time() - np.inf
+last_render_time = time.time() - np.inf
+
+checkpoint_frequency = None
+simulation_frequency = None
 
 
 def build_trainer(config: dict[str, Any], config_n: int, test_n: int) -> PPO:
@@ -63,7 +73,12 @@ def train_and_evaluate(
     # checkpoint: str | Path | None = None,
     clean_run: bool = False,
 ):
-    global max_test_i
+    global \
+        max_test_i, \
+        checkpoint_frequency, \
+        simulation_frequency, \
+        last_checkpoint_time, \
+        last_render_time
 
     ray_results_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results/test_{max_test_i}"
     ray_results_dir.mkdir(exist_ok=True, parents=True)
@@ -151,20 +166,15 @@ def train_and_evaluate(
                 result = trainer.train()
             except ValueError as e:
                 logger.error("Value error: {}", e)
-
             logger.info(
                 "Episode {} Reward Mean {}  ",
                 epoch,
-                result["env_runners"]["episode_reward_mean"],
-                # result["episode_reward_mean"],
-                # result["custom_metrics"]["custom_metrics_distance_mean"],
+                result["env_runners"]["episode_return_mean"],
             )
 
-            # if result["episode_len_mean"] < 4:
-            #     break
-
             # Save model every 10 epochs
-            if epoch % checkpoint_frequency == 0:
+            if time.time() - last_checkpoint_time > checkpoint_frequency:
+                last_checkpoint_time = time.time()
                 checkpoint_dir_tmp = (
                     checkpoints_dir / f"test_{test_n}/config_{i}/checkpoint_{epoch}"
                 )
@@ -175,7 +185,8 @@ def train_and_evaluate(
                 )
 
             # Run a test every 20 epochs
-            if epoch % simulation_frequency == 0:
+            if time.time() - last_render_time > simulation_frequency:
+                last_render_time = time.time()
                 evaluate(trainer, env, epoch, i, test_dir)
 
         max_test_i += 1
@@ -187,25 +198,35 @@ def evaluate(trainer: PPO, env: gym.Env, epoch: int, i: int, test_dir: str | Pat
     # Make a steps counter
     steps = 0
 
+    rl_module = trainer.get_module()
+
     # Run test
     video_path = Path(test_dir) / f"config_{i}/run_{epoch}.mp4"
-    filterfn = trainer.workers.local_worker().filters["default_policy"]
     env.reset()
     obs = env.reset()[0]
     done = False
     frames = []
     fps = env.metadata["render_fps"] // 2
-    action = np.zeros(env.action_space.shape[0])
+    np.zeros(env.action_space.shape[0])
     while not done:
         # Increment steps
         steps += 1
-        obs = filterfn(obs)
-        try:
-            action = trainer.compute_single_action(obs)
-        except ValueError as e:
-            logger.error("Value error: {}", e)
+        model_outputs = rl_module.forward_inference(
+            {
+                "obs": torch.from_numpy(obs.astype(np.float32)).unsqueeze(0),
+            }
+        )
+        # Extract the action distribution parameters from the output and dissolve batch dim.
+        action_dist_params = model_outputs["action_dist_inputs"][0].numpy()
 
-        obs, _, done, _, _ = env.step(action)
+        # We have continuous actions -> take the mean (max likelihood).
+        greedy_action = np.clip(
+            action_dist_params[: env.action_space.low.shape[0]],
+            a_min=env.action_space.low,
+            a_max=env.action_space.high,
+        )
+
+        obs, _, done, _, _ = env.step(greedy_action)
         frame = env.render()
         frames.append(frame)
     logger.info("Episode finished after {} steps", steps)
@@ -313,22 +334,11 @@ if __name__ == "__main__":
     )
     max_test_i = latest_directory + 1
 
-    # Define video codec and framerate
-    fps = config["run"]["sim_fps"]
-    logger.info("FPS: {}", fps)
-
-    config["run"]["chkpt_freq"] = int(
-        3000000 / config["training"]["training"]["train_batch_size"]
-    )
-    config["run"]["sim_freq"] = int(
-        1500000 / config["training"]["training"]["train_batch_size"]
-    )
-
     checkpoint_frequency = config["run"]["chkpt_freq"]
-    simulation_frequency = config["run"]["sim_freq"]
+    simulation_frequency = config["run"]["render_every"]
 
-    logger.info("Checkpoint frequency: {}", checkpoint_frequency)
-    logger.info("Simulation frequency: {}", simulation_frequency)
+    logger.info("Checkpoint frequency: every {} seconds", checkpoint_frequency)
+    logger.info("Simulation frequency: every {} seconds", simulation_frequency)
 
     if args.swarm:
         # Define PSO options
