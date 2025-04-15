@@ -369,34 +369,40 @@ class CassieEnv(MujocoEnv):
     def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
         symmetric_obs = deepcopy(obs)
 
-        # sensors
-        symmetric_obs[0:8] = obs[8:16]
-        symmetric_obs[8:16] = obs[0:8]
+        # actuatorpos - swap left and right actuators
+        symmetric_obs[0:5] = obs[5:10]
+        symmetric_obs[5:10] = obs[0:5]
 
-        # pelvis quaternion symmetric along xoz (w,x,y,z) become (w,-x,y,-z)
-        symmetric_obs[17] = -obs[17]
-        symmetric_obs[19] = -obs[19]
+        # jointpos - swap left and right joints
+        symmetric_obs[10:13] = obs[13:16]
+        symmetric_obs[13:16] = obs[10:13]
 
-        # pelvis angular velocity symmetric along xoz
-        symmetric_obs[20] = -obs[20]
-        symmetric_obs[22] = -obs[22]
+        # pelvis quaternion symmetric along the sagittal plane (xz-plane)
+        # For a quaternion [w,x,y,z], the symmetry transformation is [w,-x,y,-z]
+        symmetric_obs[17] = -obs[17]  # x component
+        symmetric_obs[19] = -obs[19]  # z component
 
-        # pelvis acceleration symmetric along xoz
-        symmetric_obs[24] = -obs[24]
+        # pelvis angular velocity - symmetric along sagittal plane
+        symmetric_obs[20] = -obs[20]  # x component
+        symmetric_obs[22] = -obs[22]  # z component
 
-        # Magnotometer symmetric along xoz
-        symmetric_obs[27] = -obs[27]
+        # pelvis linear acceleration - symmetric along sagittal plane (y direction flips)
+        symmetric_obs[24] = -obs[24]  # y component
 
-        # command symmetric along xoz
-        symmetric_obs[30] = -obs[30]
+        # Magnetometer - symmetric along sagittal plane
+        symmetric_obs[27] = -obs[27]  # y component
 
-        # contact forces symmetric along xoz
-        symmetric_obs[31:34] = obs[34:37]
-        symmetric_obs[34:37] = obs[31:34]
+        # command - y velocity flips sign when mirroring
+        symmetric_obs[30] = -obs[30]  # y command
 
-        # symmetry of the clock
-        symmetric_obs[37] = -obs[37]
-        symmetric_obs[38] = -obs[38]
+        # contact forces - swap left and right foot forces
+        symmetric_obs[31:34] = obs[34:37]  # left foot forces become right foot forces
+        symmetric_obs[34:37] = obs[31:34]  # right foot forces become left foot forces
+
+        # clock signal - phase shift of half cycle for symmetric gait
+        # Use negative values for sin and cos to represent phase shift of π
+        symmetric_obs[37] = -obs[37]  # sin component
+        symmetric_obs[38] = -obs[38]  # cos component
 
         return symmetric_obs
 
