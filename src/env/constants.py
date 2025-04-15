@@ -1,17 +1,17 @@
 import numpy as np
+from collections import OrderedDict
 
 
 DEFAULT_CONFIG = {
     "symmetric_regulation": True,
-    "steps_per_cycle": 30,
-    "r": 1.0,
+    "dt_per_cycle": 1.0,
+    "r": 0.6,
     "kappa": 25,
     "x_cmd_vel": 1.5,
     "y_cmd_vel": 0,
-    "z_cmd_vel": 0,
     "terminate_when_unhealthy": True,
-    "max_simulation_steps": 400,
-    "pelvis_height": [0.75, 1.25],
+    "max_simulation_time": 1.5,
+    "pelvis_height": [0.5, 1.25],
     "feet_distance_x": 1.0,
     "feet_distance_y": 0.5,
     "feet_distance_z": 0.5,
@@ -23,16 +23,17 @@ DEFAULT_CONFIG = {
     "force_max_norm": 0.0,
     "push_freq": 0,
     "push_duration": 0,
-    "bias": 1.0,
-    "r_biped": 4.0,
-    "r_cmd": 3.0,
-    "r_smooth": 1.0,
-    "r_alternate": 4.0,
-    "r_symmetric": 2.0,
+    "bias": -0.01,
+    "r_biped": 0.0,
+    "r_cmd": 1.0,
+    "r_smooth": 0.0,
     "is_training": True,
-    "max_roll": 0.2,
-    "max_pitch": 0.2,
-    "max_yaw": 0.2,
+    "max_roll": 2.0,
+    "max_pitch": 2.0,
+    "max_yaw": 10.0,
+    "width": 1920,
+    "height": 1080,
+    "sim_fps": 40,
 }
 
 
@@ -48,7 +49,7 @@ c_swing_spd = 0
 c_stance_spd = +1
 
 
-OMEGA = 4.5
+OMEGA = 2.0
 
 
 # Data indices
@@ -100,3 +101,36 @@ for key in exponential_bornes.keys():
     multiplicators[key] = -OMEGA / (
         exponential_bornes[key][1] - exponential_bornes[key][0]
     )
+
+
+mass = 33.8502
+gravity = 9.81
+
+sensors = OrderedDict(
+    {
+        "actuatorpos": [
+            "left-hip-roll-input",
+            "left-hip-yaw-input",
+            "left-hip-pitch-input",
+            "left-knee-input",
+            "left-foot-input",
+            "right-hip-roll-input",
+            "right-hip-yaw-input",
+            "right-hip-pitch-input",
+            "right-knee-input",
+            "right-foot-input",
+        ],
+        "jointpos": [
+            "left-shin-output",
+            "left-tarsus-output",
+            "left-foot-output",
+            "right-shin-output",
+            "right-tarsus-output",
+            "right-foot-output",
+        ],
+        "framequat": ["pelvis-orientation"],
+        "gyro": ["pelvis-angular-velocity"],
+        "accelerometer": ["pelvis-linear-acceleration"],
+        "magnetometer": ["pelvis-magnetometer"],
+    }
+)

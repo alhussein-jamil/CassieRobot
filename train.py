@@ -1,363 +1,416 @@
 import argparse
-import logging as log
-import time
-from pathlib import Path
-from typing import Any
+import logging
 import os
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
 import mediapy as media
 import numpy as np
 import ray
 import torch
 import yaml
-import gymnasium as gym
+from gymnasium import Env
+from loguru import logger
 from pyswarms.single.global_best import GlobalBestPSO
-from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.algorithms.ppo import PPO, PPOConfig
 from ray.tune.logger import UnifiedLogger
 from ray.tune.registry import register_env
-from ray.rllib.algorithms.ppo import PPO
-from src.env.functions import fill_dict_with_list, flatten_dict
-from src.env.cassie import CassieEnv
-from src.env.callbacks import MyCallbacks
-from src.training.loader import Loader
-from loguru import logger
 
+from src.env.callbacks import CassieEnvCallback
+from src.env.cassie import CassieEnv
+from src.training.utils import fill_dict_with_list, flatten_dict
+from src.training.loader import Loader
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger.remove()
+logger.add(
+    lambda msg: print(msg), colorize=True, format="<level>{level}</level> | {message}"
+)
+
+# Check for CUDA availability
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 torch.cuda.empty_cache()
 
-log.basicConfig(level=log.DEBUG)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+@dataclass
+class TrainingConfig:
+    """Configuration for training process."""
 
-
-OUTPUT_DIR = "output"
-max_test_i = 0
-checkpoint = None
-load = False
-sim_dir = Path.cwd() / f"{OUTPUT_DIR}/simulations"
-checkpoints_dir = Path.cwd() / f"{OUTPUT_DIR}/checkpoints"
-log_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results"
-
-last_checkpoint_time = time.time() - np.inf
-last_render_time = time.time() - np.inf
-
-checkpoint_frequency = None
-simulation_frequency = None
+    output_dir: str = "output"
+    checkpoint_frequency: int = 300  # seconds
+    simulation_frequency: int = 600  # seconds
+    clean_run: bool = False
+    config_path: str = "configs/default_config.yaml"
+    use_swarm: bool = False
+    max_test_i: int = 0
 
 
-def build_trainer(config: dict[str, Any], config_n: int, test_n: int) -> PPO:
-    training_config = config["training"]
-    trainer = (
-        PPOConfig()
-        .environment(**training_config.get("environment", {}))
-        .env_runners(**training_config.get("env_runners", {}))
-        .checkpointing(**training_config.get("checkpointing", {}))
-        .debugging(
-            logger_creator=custom_log_creator(
-                log_dir / f"test_{test_n}", f"config_{config_n}"
-            )
-            if log_dir is not None
-            else None
-        )
-        .training(**training_config.get("training", {}))
-        .framework(**training_config.get("framework", {}))
-        .resources(**training_config.get("resources", {}))
-        .evaluation(**training_config.get("evaluation", {}))
-        .fault_tolerance(**training_config.get("fault_tolerance", {}))
-        .callbacks(callbacks_class=MyCallbacks)
-    ).build()
-    return trainer
+class TrainingManager:
+    """Manages the training and evaluation process for Cassie robot."""
 
+    def __init__(self, config: TrainingConfig):
+        """Initialize training manager with configuration."""
+        self.config = config
+        self.last_checkpoint_time = time.time() - np.inf
+        self.last_render_time = time.time() - np.inf
 
-def train_and_evaluate(
-    config: dict[str, Any],
-    hyper_configs: list[dict[str, Any] | None] = [None],
-    # checkpoint: str | Path | None = None,
-    clean_run: bool = False,
-):
-    global \
-        max_test_i, \
-        checkpoint_frequency, \
-        simulation_frequency, \
-        last_checkpoint_time, \
-        last_render_time
+        # Setup directories
+        self.output_dir = Path(config.output_dir)
+        self.output_dir.mkdir(exist_ok=True, parents=True)
 
-    ray_results_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results/test_{max_test_i}"
-    ray_results_dir.mkdir(exist_ok=True, parents=True)
+        self.sim_dir = self.output_dir / "simulations"
+        self.sim_dir.mkdir(exist_ok=True, parents=True)
 
-    metrics = []
-    for i, hyper_config in enumerate(hyper_configs):
-        training_config = config["training"]
+        self.checkpoints_dir = self.output_dir / "checkpoints"
+        self.checkpoints_dir.mkdir(exist_ok=True, parents=True)
 
-        if hyper_config is not None:
-            fill_dict_with_list(
-                hyper_config, training_config["environment"]["env_config"]
-            )
-        logger.info("Training config {}", training_config["environment"]["env_config"])
-        test_n = max_test_i
-        if clean_run:
-            logger.info("Running clean run")
-        else:
-            # runs = Path.glob(log_dir, "cassie_PPO_config*")
-            runs = Path.glob(checkpoints_dir, "test_*")
-            load = False
-            # sort runs by last modified where the last modified is the first element
-            runs = sorted(runs, key=os.path.getmtime, reverse=True)
+        self.log_dir = self.output_dir / "ray_results"
+        self.log_dir.mkdir(exist_ok=True, parents=True)
 
-            for run in list(runs):
-                if len(list(run.glob("config_*"))) > 0:
-                    run_config = run / f"config_{i}"
-                else:
-                    run_config = run
+        # Find latest test directory
+        self.find_latest_test_dir()
 
-                logger.info("Loading run {}", run_config)
-                checkpoints = Path.glob(run_config, "checkpoint_*")
-                # sort by the number of the checkpoint
-                checkpoints = sorted(
-                    checkpoints, key=lambda x: int(x.stem.split("_")[-1])
-                )
-                test_n = int(run.stem.split("_")[-1])
-                for checkpoint in list(checkpoints)[::-1]:
-                    logger.info("Loading checkpoint {}", checkpoint)
-                    load = True
-                    break
-                if load:
-                    break
-                else:
-                    logger.info("No checkpoint found here")
+        # Initialize ray
+        ray.init(ignore_reinit_error=True, num_gpus=1)
+        register_env("cassie-v0", lambda cfg: CassieEnv(cfg))
 
-        trainer = build_trainer(config, i, test_n)
-        # Build trainer
-        if not clean_run:
-            if load:
-                try:
-                    trainer.restore(str(checkpoint).replace("\\", "/"))
-                    logger.info(
-                        "Checkpoint loaded from {}", str(checkpoint).replace("\\", "/")
-                    )
-                except Exception as e:
-                    logger.error(
-                        "Error loading checkpoint: {}, starting from scratch", e
-                    )
+        # Load configuration
+        self.loader = Loader(logdir=self.log_dir, simdir=self.sim_dir)
+        self.full_config = self.loader.load_config(config.config_path)
 
-        logger.info("Creating test environment")
-        env = CassieEnv(
-            {
-                **config["training"]["environment"]["env_config"],
-                **{"is_training": False},
-            }
-        )
-        env.render_mode = "rgb_array"
-
-        # Create folder for test
-        test_dir = Path(sim_dir) / f"test_{test_n}"
-        test_dir.mkdir(exist_ok=True)
-
-        (test_dir / f"config_{i}").mkdir(exist_ok=True)
-
-        # save config
-        with (test_dir / f"config_{i}/config.yaml").open("w") as file:
-            yaml.dump(config["training"]["environment"]["env_config"], file)
-
-        for epoch in range(
-            trainer.iteration if hasattr(trainer, "iteration") else 0,
-            config["run"].get("epochs", 1000),
-        ):
-            try:
-                # Train for one iteration
-                result = trainer.train()
-            except ValueError as e:
-                logger.error("Value error: {}", e)
-            logger.info(
-                "Episode {} Reward Mean {}  ",
-                epoch,
-                result["env_runners"]["episode_return_mean"],
-            )
-
-            # Save model every 10 epochs
-            if time.time() - last_checkpoint_time > checkpoint_frequency:
-                last_checkpoint_time = time.time()
-                checkpoint_dir_tmp = (
-                    checkpoints_dir / f"test_{test_n}/config_{i}/checkpoint_{epoch}"
-                )
-                trainer.save(checkpoint_dir_tmp)
-                logger.info(
-                    "Checkpoint saved at {}",
-                    checkpoint_dir_tmp,
-                )
-
-            # Run a test every 20 epochs
-            if time.time() - last_render_time > simulation_frequency:
-                last_render_time = time.time()
-                evaluate(trainer, env, epoch, i, test_dir)
-
-        max_test_i += 1
-        metrics.append(result["episode_reward_mean"])
-    return metrics
-
-
-def evaluate(trainer: PPO, env: gym.Env, epoch: int, i: int, test_dir: str | Path):
-    # Make a steps counter
-    steps = 0
-
-    rl_module = trainer.get_module()
-
-    # Run test
-    video_path = Path(test_dir) / f"config_{i}/run_{epoch}.mp4"
-    env.reset()
-    obs = env.reset()[0]
-    done = False
-    frames = []
-    fps = env.metadata["render_fps"] // 2
-    np.zeros(env.action_space.shape[0])
-    while not done:
-        # Increment steps
-        steps += 1
-        model_outputs = rl_module.forward_inference(
-            {
-                "obs": torch.from_numpy(obs.astype(np.float32)).unsqueeze(0),
-            }
-        )
-        # Extract the action distribution parameters from the output and dissolve batch dim.
-        action_dist_params = model_outputs["action_dist_inputs"][0].numpy()
-
-        # We have continuous actions -> take the mean (max likelihood).
-        greedy_action = np.clip(
-            action_dist_params[: env.action_space.low.shape[0]],
-            a_min=env.action_space.low,
-            a_max=env.action_space.high,
-        )
-
-        obs, _, done, _, _ = env.step(greedy_action)
-        frame = env.render()
-        frames.append(frame)
-    logger.info("Episode finished after {} steps", steps)
-    logger.info("Episode done reason: {}", env.isdone)
-    # Save video
-    media.write_video(video_path, frames, fps=fps)
-    logger.info("Test saved at {}", video_path)
-
-
-def custom_log_creator(custom_path: str | Path, custom_str: str):
-    def logger_creator(config):
-        if not os.path.exists(custom_path):
-            os.makedirs(custom_path)
-        logdir = Path(custom_path) / custom_str
-        logdir.mkdir(exist_ok=True)
-        return UnifiedLogger(config, logdir, loggers=None)
-
-    return logger_creator
-
-
-if __name__ == "__main__":
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument(
-        "-cleanrun",
-        action="store_true",
-        help="Runs without loading the previous simulation",
-    )
-    argparser.add_argument("-simdir", "--simdir", type=str, help="Simulation directory")
-    argparser.add_argument("-logdir", "--logdir", type=str, help="Log directory")
-    argparser.add_argument("--config", type=str, help="Path to config file")
-    argparser.add_argument("--swarm", action="store_true", help="Use swarm optimizer")
-    args = argparser.parse_args()
-
-    Path(OUTPUT_DIR).mkdir(exist_ok=True, parents=True)
-
-    if args.logdir is not None:
-        log_dir = args.logdir
-    else:
-        log_dir = Path.cwd() / f"{OUTPUT_DIR}/ray_results"
-    if args.config is not None:
-        config = args.config
-
-    else:
-        config = "configs/default_config.yaml"
-    logger.info("Config file: {}", config)
-    ray.init(ignore_reinit_error=True, num_gpus=1)
-
-    clean_run = args.cleanrun
-
-    if args.simdir is not None:
-        sim_dir = args.simdir
-    else:
-        sim_dir = Path.cwd() / f"{OUTPUT_DIR}/simulations"
-
-    logger.info("Simulation directory: {}", sim_dir)
-    logger.info("Log directory: {}", log_dir)
-
-    register_env("cassie-v0", lambda config: CassieEnv(config))
-
-    loader = Loader(logdir=log_dir, simdir=sim_dir)
-
-    config = loader.load_config(config)
-
-    hyperparameter_ranges = {}
-
-    for key, value in config["training"]["environment"]["env_config"].items():
-        if isinstance(value, list):
-            hyperparameter_ranges[key] = [
-                [
-                    value[0] - (value[1] - value[0]) / 4,
-                    value[0] + (value[1] - value[0]) / 4,
-                ],
-                [
-                    value[1] - (value[1] - value[0]) / 4,
-                    value[1] + (value[1] - value[0]) / 4,
-                ],
+    def find_latest_test_dir(self) -> None:
+        """Find the latest test directory to continue from."""
+        if self.checkpoints_dir.exists():
+            test_dirs = [
+                d for d in self.checkpoints_dir.iterdir() if d.name.startswith("test_")
             ]
-        elif isinstance(value, float):
-            hyperparameter_ranges[key] = (
-                [value - value / 4, value + value / 4]
-                if value >= 0
-                else [value + value / 4, value - value / 4]
+            if test_dirs:
+                latest_test_num = max(int(d.name.split("_")[-1]) for d in test_dirs)
+                self.config.max_test_i = latest_test_num + 1
+            else:
+                self.config.max_test_i = 0
+
+    def custom_log_creator(self, custom_path: Union[str, Path], custom_str: str):
+        """Create a custom logger for Ray."""
+
+        def logger_creator(config):
+            logdir = Path(custom_path) / custom_str
+            logdir.mkdir(exist_ok=True, parents=True)
+            return UnifiedLogger(config, logdir, loggers=None)
+
+        return logger_creator
+
+    def build_trainer(self, config_index: int, test_number: int) -> PPO:
+        """Build a PPO trainer with given configuration."""
+        training_config = self.full_config["training"]
+
+        return (
+            PPOConfig()
+            .environment(**training_config.get("environment", {}))
+            .env_runners(**training_config.get("env_runners", {}))
+            .checkpointing(**training_config.get("checkpointing", {}))
+            .debugging(
+                logger_creator=self.custom_log_creator(
+                    self.log_dir / f"test_{test_number}", f"config_{config_index}"
+                )
             )
-    logger.info("Hyperparameters Ranges", hyperparameter_ranges)
-    hyperparameter_bounds = flatten_dict(hyperparameter_ranges)
+            .training(**training_config.get("training", {}))
+            .framework(**training_config.get("framework", {}))
+            .resources(**training_config.get("resources", {}))
+            .evaluation(**training_config.get("evaluation", {}))
+            .fault_tolerance(**training_config.get("fault_tolerance", {}))
+            .callbacks(callbacks_class=CassieEnvCallback)
+        ).build()
 
-    # Uncomment to use wandb
-    # wandb.init(project="Cassie", config=config["training"]["environment"]["env_config"])
+    def evaluate(
+        self, trainer: PPO, env: Env, epoch: int, config_index: int, test_dir: Path
+    ) -> None:
+        """Evaluate the current policy and save a video."""
+        # Reset environment
+        env.reset()
+        obs, _ = env.reset()
+        done = False
+        frames = []
+        steps = 0
+        render_step = 0  # Track rendered frames
 
-    # Create sim directory if it doesn't exist
-    if not os.path.exists(sim_dir):
-        os.makedirs(sim_dir)
-        # Find the latest directory named test_i in the sim directory
+        # Get RL module
+        rl_module = trainer.get_module()
 
-    if not os.path.exists(checkpoints_dir):
-        os.makedirs(checkpoints_dir)
+        render_fps = self.full_config["run"]["render_fps"]
+        sim_fps = self.full_config["training"]["environment"]["env_config"]["sim_fps"]
+        # Removed: skip_every = sim_fps // render_fps
 
-    latest_directory = max(
-        [
-            int(d.split("_")[-1])
-            for d in os.listdir(checkpoints_dir)
-            if d.startswith("test_")
-        ],
-        default=0,
-    )
-    max_test_i = latest_directory + 1
+        # Ensure fps are positive to avoid division by zero or unexpected behavior
+        if render_fps <= 0 or sim_fps <= 0:
+            logger.warning("render_fps or sim_fps is non-positive. Skipping rendering.")
+            render_fps = 0 # Effectively disable rendering
 
-    checkpoint_frequency = config["run"]["chkpt_freq"]
-    simulation_frequency = config["run"]["render_every"]
+        # Run episode
+        while not done:
+            # Get model outputs
+            model_outputs = rl_module.forward_inference(
+                {
+                    "obs": torch.from_numpy(obs.astype(np.float32)).unsqueeze(0),
+                }
+            )
 
-    logger.info("Checkpoint frequency: every {} seconds", checkpoint_frequency)
-    logger.info("Simulation frequency: every {} seconds", simulation_frequency)
+            # Extract action
+            action_dist_params = model_outputs["action_dist_inputs"][0].numpy()
+            greedy_action = action_dist_params[: env.action_space.low.shape[0]]
 
-    if args.swarm:
-        # Define PSO options
-        pso_options = {"c1": 0.5, "c2": 0.3, "w": 0.9}
-        min_bounds, max_bounds = (
-            [x[0] for x in hyperparameter_bounds.values()],
-            [x[1] for x in hyperparameter_bounds.values()],
+            # Step environment
+            obs, _, done, _, _ = env.step(greedy_action)
+
+            # Render and save frame based on time comparison
+            # Check if it's time to render the next frame
+            should_render = False
+            if render_fps > 0:
+                 # Condition ensures rendering happens at the correct frequency
+                 if steps * render_fps >= render_step * sim_fps:
+                    should_render = True
+                    render_step += 1
+
+            if should_render:
+                frame = env.render()
+                frames.append(frame)
+
+            steps += 1
+
+        # Log episode results
+        logger.info("Episode finished after {} steps", steps)
+        logger.info("Episode done reason: {}", env.isdone)
+
+        # Save video
+        video_path = test_dir / f"config_{config_index}/run_{epoch}.mp4"
+        media.write_video(video_path, frames, fps=min(render_fps, sim_fps))
+        logger.info("Test saved at {}", video_path)
+
+    def load_checkpoint(self, trainer: PPO, config_index: int) -> bool:
+        """Attempt to load the latest checkpoint."""
+        if self.config.clean_run:
+            return False
+
+        # Find most recent run directories
+        runs = sorted(
+            Path.glob(self.checkpoints_dir, "test_*"),
+            key=os.path.getmtime,
+            reverse=True,
         )
+
+        for run in runs:
+            if (run / f"config_{config_index}").exists():
+                run_config = run / f"config_{config_index}"
+            else:
+                run_config = run
+
+            logger.info("Checking run {}", run_config)
+
+            # Find checkpoints in this run
+            checkpoints = sorted(
+                Path.glob(run_config, "checkpoint_*"),
+                key=lambda x: int(x.stem.split("_")[-1]),
+            )
+
+            # Try to load the latest checkpoint
+            for checkpoint in reversed(checkpoints):
+                try:
+                    # Use absolute path without URI format
+                    checkpoint_path = os.path.abspath(checkpoint)
+                    trainer.restore(checkpoint_path)
+                    logger.info("Checkpoint loaded from {}", checkpoint_path)
+                    return True
+                except Exception as e:
+                    logger.error("Error loading checkpoint: {}", e)
+
+        logger.info("No valid checkpoint found, starting from scratch")
+        return False
+
+    def train_and_evaluate(
+        self, hyper_configs: List[Optional[Dict[str, Any]]] = None
+    ) -> List[float]:
+        """Train and evaluate the model with given hyperparameter configurations."""
+        if hyper_configs is None:
+            hyper_configs = [None]
+
+        test_n = self.config.max_test_i
+        metrics = []
+
+        # Prepare results directory
+        ray_results_dir = self.log_dir / f"test_{test_n}"
+        ray_results_dir.mkdir(exist_ok=True, parents=True)
+
+        for i, hyper_config in enumerate(hyper_configs):
+            # Apply hyperparameter configuration if provided
+            env_config = self.full_config["training"]["environment"]["env_config"]
+            if hyper_config is not None:
+                fill_dict_with_list(hyper_config, env_config)
+
+            logger.info("Training config: {}", env_config)
+
+            # Build trainer
+            trainer = self.build_trainer(i, test_n)
+
+            # Load checkpoint if available
+            self.load_checkpoint(trainer, i)
+
+            # Create test environment
+            env = CassieEnv({**env_config, "is_training": False})
+            env.render_mode = "rgb_array"
+
+            # Create directory for this test
+            test_dir = self.sim_dir / f"test_{test_n}"
+            test_dir.mkdir(exist_ok=True)
+            (test_dir / f"config_{i}").mkdir(exist_ok=True)
+
+            # Save config
+            with (test_dir / f"config_{i}/config.yaml").open("w") as file:
+                yaml.dump(env_config, file)
+
+            # Training loop
+            start_epoch = trainer.iteration if hasattr(trainer, "iteration") else 0
+            max_epochs = self.full_config["run"].get("epochs", 1000)
+
+            for epoch in range(start_epoch, max_epochs):
+                try:
+                    # Train for one iteration
+                    result = trainer.train()
+                    logger.info(
+                        "Episode {} Reward Mean {}",
+                        epoch,
+                        result["env_runners"]["episode_return_mean"],
+                    )
+
+                    # Save checkpoint if needed
+                    current_time = time.time()
+                    if (
+                        current_time - self.last_checkpoint_time
+                        > self.full_config["run"]["chkpt_freq"]
+                    ):
+                        self.last_checkpoint_time = current_time
+                        # Create checkpoint directory
+                        checkpoint_dir = (
+                            self.checkpoints_dir
+                            / f"test_{test_n}/config_{i}/checkpoint_{epoch}"
+                        )
+                        checkpoint_path = os.path.abspath(checkpoint_dir)
+                        trainer.save(checkpoint_path)
+                        logger.info("Checkpoint saved at {}", checkpoint_path)
+
+                    # Run evaluation if needed
+                    if (
+                        current_time - self.last_render_time
+                        > self.full_config["run"]["render_every"]
+                    ):
+                        self.last_render_time = current_time
+                        self.evaluate(trainer, env, epoch, i, test_dir)
+
+                except ValueError as e:
+                    logger.error("Value error: {}", e)
+
+            # Track metrics
+            self.config.max_test_i += 1
+            metrics.append(result.get("episode_reward_mean", 0))
+
+        return metrics
+
+    def get_hyperparameter_ranges(self) -> Dict[str, Any]:
+        """Get hyperparameter ranges for optimization."""
+        hyperparameter_ranges = {}
+        env_config = self.full_config["training"]["environment"]["env_config"]
+
+        for key, value in env_config.items():
+            if isinstance(value, list) and len(value) == 2:
+                # Assume it's a range [min, max]
+                range_span = value[1] - value[0]
+                hyperparameter_ranges[key] = [
+                    [value[0] - range_span / 4, value[0] + range_span / 4],
+                    [value[1] - range_span / 4, value[1] + range_span / 4],
+                ]
+            elif isinstance(value, float):
+                # Create a range around the float value
+                range_span = abs(value) / 4
+                hyperparameter_ranges[key] = [value - range_span, value + range_span]
+
+        return hyperparameter_ranges
+
+    def run_swarm_optimization(self):
+        """Run particle swarm optimization for hyperparameter tuning."""
+        hyperparameter_ranges = self.get_hyperparameter_ranges()
+        logger.info("Hyperparameter ranges: {}", hyperparameter_ranges)
+
+        hyperparameter_bounds = flatten_dict(hyperparameter_ranges)
+        min_bounds = [x[0] for x in hyperparameter_bounds.values()]
+        max_bounds = [x[1] for x in hyperparameter_bounds.values()]
+
+        # PSO options
+        pso_options = {"c1": 0.5, "c2": 0.3, "w": 0.9}
+
+        # Initialize optimizer
         optimizer = GlobalBestPSO(
-            n_particles=config["run"]["n_particles"],
+            n_particles=self.full_config["run"]["n_particles"],
             dimensions=len(hyperparameter_bounds),
             bounds=(min_bounds, max_bounds),
             options=pso_options,
         )
+
+        # Run optimization
         best_hyperparameters, best_fitness = optimizer.optimize(
-            lambda hyperconfigs: train_and_evaluate(config, hyper_configs=hyperconfigs),
-            iters=config["run"]["hyper_par_iter"],
+            lambda hyperconfigs: self.train_and_evaluate(hyperconfigs),
+            iters=self.full_config["run"]["hyper_par_iter"],
         )
-        print("Best hyperparameters", best_hyperparameters)
-        print("Best fitness", best_fitness)
-    else:
-        train_and_evaluate(config, clean_run=clean_run)
+
+        logger.info("Best hyperparameters: {}", best_hyperparameters)
+        logger.info("Best fitness: {}", best_fitness)
+
+        return best_hyperparameters, best_fitness
+
+    def run(self):
+        """Run the training process."""
+        if self.config.use_swarm:
+            self.run_swarm_optimization()
+        else:
+            self.train_and_evaluate()
+
+
+def parse_arguments() -> TrainingConfig:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Train Cassie robot")
+    parser.add_argument(
+        "-cleanrun",
+        action="store_true",
+        help="Runs without loading the previous simulation",
+    )
+    parser.add_argument("-simdir", "--simdir", type=str, help="Simulation directory")
+    parser.add_argument("-logdir", "--logdir", type=str, help="Log directory")
+    parser.add_argument("--config", type=str, help="Path to config file")
+    parser.add_argument("--swarm", action="store_true", help="Use swarm optimizer")
+
+    args = parser.parse_args()
+
+    config = TrainingConfig(clean_run=args.cleanrun, use_swarm=args.swarm)
+
+    if args.config:
+        config.config_path = args.config
+
+    if args.simdir:
+        config.output_dir = args.simdir
+
+    return config
+
+
+def main():
+    """Main entry point."""
+    # Parse arguments
+    config = parse_arguments()
+
+    # Create and run training manager
+    manager = TrainingManager(config)
+    manager.run()
+
+
+if __name__ == "__main__":
+    main()

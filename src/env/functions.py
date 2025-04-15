@@ -19,8 +19,37 @@ def p_between_von_mises(a, b, kappa, x):
 
 
 @nb.jit(nopython=True, cache=True)
+def mod(a, b):
+    """
+    Computes `a mod b` centered around zero.
+
+    The result `r` satisfies:
+    - `r = a - k*b` for some integer `k`
+    - `-abs(b)/2 <= r < abs(b)/2` if b > 0
+    - `-abs(b)/2 < r <= abs(b)/2` if b < 0
+
+    Args:
+        a: The dividend. Can be a scalar or NumPy array.
+        b: The divisor. Must be non-zero. Can be a scalar or NumPy array (if broadcasting is intended).
+
+    Returns:
+        The result of the centered modulo operation. Matches the type of `a / b`.
+    """
+    # Using the formula: (a + b/2) % b - b/2
+    # Ensure floating point division
+    b_half = b / 2.0
+    # Calculate result using standard modulo operator (%) which works correctly in Numba/NumPy
+    # Note: The behavior of % with negative numbers matches Python's definition (sign of divisor).
+    result = (a + b_half) % b - b_half
+    return result
+
+
+@nb.jit(nopython=True, cache=True)
 def action_dist(
-    a: "npt.NDArray[np.float64]", b: "npt.NDArray[np.float64]", actions_high: "npt.NDArray[np.float64]", actions_low: "npt.NDArray[np.float64]"
+    a: "npt.NDArray[np.float64]",
+    b: "npt.NDArray[np.float64]",
+    actions_high: "npt.NDArray[np.float64]",
+    actions_low: "npt.NDArray[np.float64]",
 ) -> "npt.NDArray[np.float64]":
     diff = a - b
 
@@ -48,40 +77,3 @@ def apply_f_to_nested_dict(f, nested_dict):
                 v[i] = f(v[i])
         elif isinstance(v, float):
             nested_dict[k] = f(v)
-
-
-def flatten_dict(nested_dict, parent=""):
-    """
-    Flattens a nested dict
-    """
-    flat_dict = {}
-    if isinstance(nested_dict, list):
-        return nested_dict
-    for k, v in nested_dict.items():
-        if isinstance(v, dict):
-            flat_dict.update(flatten_dict(v, parent + k + "_"))
-        elif isinstance(v, list) and isinstance(v[0], list):
-            for i in range(len(v)):
-                flat_dict[parent + k + "_" + str(i)] = v[i]
-        else:
-            flat_dict[parent + k] = v
-    return flat_dict
-
-
-@nb.jit(nopython=True, cache=True)
-def fill_dict_with_list(list_values, dictionary, index=0):
-    """
-    Fills a nested dict with a list
-    """
-    for k, v in dictionary.items():
-        if isinstance(v, dict):
-            fill_dict_with_list(list_values, v, index)
-        elif isinstance(v, list):
-            for i in range(len(v)):
-                if isinstance(v[i], float):
-                    v[i] = list_values[index]
-                    index += 1
-        elif isinstance(v, float):
-            dictionary[k] = list_values[index]
-            index += 1
-    return dictionary

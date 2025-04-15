@@ -1,16 +1,16 @@
 import logging as log
 from copy import deepcopy
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Dict, Tuple
 
+import cv2
 import mujoco as m
 import numpy as np
-import torch
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
+from collections import OrderedDict
 from pathlib import Path
 from .constants import (
     DEFAULT_CONFIG,
-    multiplicators,
     PELVIS,
     LEFT_FOOT,
     RIGHT_FOOT,
@@ -21,15 +21,18 @@ from .constants import (
     THETA_RIGHT,
     c_stance_spd,
     c_swing_frc,
+    sensors,
+    mass,
+    gravity,
+    OMEGA,
 )
-from .functions import action_dist, p_between_von_mises
+from .functions import action_dist, p_between_von_mises, mod
 import numba as nb
 
 if TYPE_CHECKING:
     import numpy.typing as npt
 
 log.basicConfig(level=log.INFO)
-
 
 
 class CassieEnv(MujocoEnv):
@@ -39,62 +42,160 @@ class CassieEnv(MujocoEnv):
             "rgb_array",
             "depth_array",
         ],
-        "render_fps": 100,
+        "render_fps": 0,  # Will be calculated in __init__
     }
+    mujoco_dt = 0.0005
 
     def __init__(
-        self, env_config: dict[str, Any] | None = None, model_dir: str | Path = "assets/model"
+        self,
+        env_config: Dict[str, Any] | None = None,
+        model_dir: str | Path = "assets/model",
     ):
-        if env_config is None:
-            env_config = DEFAULT_CONFIG
-        self.symmetric_regulation = env_config.get(
-            "symmetric_regulation", DEFAULT_CONFIG["symmetric_regulation"]
+        # Combine user config with defaults
+        config = deepcopy(DEFAULT_CONFIG)
+        if env_config:
+            config.update(env_config)
+
+        # --- Configuration Parameters ---
+        self.symmetric_regulation: bool = config["symmetric_regulation"]
+        self._terminate_when_unhealthy: bool = config["terminate_when_unhealthy"]
+        self._healthy_pelvis_z_range: Tuple[float, float] = config["pelvis_height"]
+        self._healthy_feet_distance_x: float = config["feet_distance_x"]
+        self._healthy_feet_distance_y: float = config["feet_distance_y"]
+        self._healthy_feet_distance_z: float = config["feet_distance_z"]
+        self._healthy_dis_to_pelvis: float = config["feet_pelvis_height"]
+        self._healthy_feet_height: float = config["feet_height"]
+        self._max_sim_time: int = config["max_simulation_time"]
+        self.dt_per_cycle: float = config["dt_per_cycle"]
+        self.max_roll: float = config["max_roll"]
+        self.max_pitch: float = config["max_pitch"]
+        self.max_yaw: float = config["max_yaw"]
+        self.training: bool = config["is_training"]
+        self.r: float = config["r"]  # Phase shift for stance phase distribution
+        self.kappa: float = config[
+            "kappa"
+        ]  # Concentration parameter for Von Mises distributions
+        self.x_cmd_vel: float = config["x_cmd_vel"]
+        self.y_cmd_vel: float = config["y_cmd_vel"]
+        self.model_file: str = config["model"]
+        self._reset_noise_scale: float = config["reset_noise_scale"]
+        self._force_max_norm: float = config["force_max_norm"]
+        self._push_freq: int = config["push_freq"]
+        self._push_duration: int = config["push_duration"]
+        self.render_width: int = config["width"]
+        self.render_height: int = config["height"]
+        self.sim_fps: int = config["sim_fps"]
+        self.local_render_mode: str = config["render_mode"]
+
+        # Extract reward coefficients (keys starting with 'r_' or 'bias')
+        self.reward_coeffs = {
+            k: v
+            for k, v in config.items()
+            if k.startswith("r_") or k.startswith("bias")
+        }
+
+        # --- Derived Parameters & State ---
+        self.a_swing: float = 0.0  # Mean phase for swing force distribution
+        self.a_stance: float = self.r  # Mean phase for stance speed distribution
+        self.b_swing: float = self.a_stance  # End phase for swing force distribution
+        self.b_stance: float = 1.0  # End phase for stance speed distribution
+
+        self._push_probability: float = (
+            1.0 / self._push_freq if self._push_freq > 0 else 0.0
         )
-        self._terminate_when_unhealthy = env_config.get(
-            "terminate_when_unhealthy", DEFAULT_CONFIG["terminate_when_unhealthy"]
+        self._pushing: int = (
+            -1
+        )  # Tracks duration of applied push force (-1: not pushing)
+
+        self.phi: float = 0.0  # Current phase in the gait cycle [0, 1)
+        self.steps: int = 0  # Number of simulation steps taken
+        self.previous_action: npt.NDArray[np.float32] = np.zeros(
+            10
+        )  # Store previous action for smoothing reward
+        self.command: npt.NDArray[np.float32] = np.array(
+            [self.x_cmd_vel, self.y_cmd_vel]
+        )  # Target velocity command
+        self.contact: bool = False  # Flag indicating if feet have made contact recently
+        self.symmetric_turn: bool = (
+            False  # Flag to alternate between normal and symmetric steps
         )
-        self._healthy_pelvis_z_range = env_config.get(
-            "pelvis_height", DEFAULT_CONFIG["pelvis_height"]
+        self.init_rpy: npt.NDArray[np.float32] | None = (
+            None  # Initial roll, pitch, yaw of the pelvis
         )
-        self._healthy_feet_distance_x = env_config.get(
-            "feet_distance_x", DEFAULT_CONFIG["feet_distance_x"]
+        self.contact_force_left_foot: npt.NDArray[np.float32] = np.zeros(
+            6
+        )  # Contact force on left foot
+        self.contact_force_right_foot: npt.NDArray[np.float32] = np.zeros(
+            6
+        )  # Contact force on right foot
+        self.obs: npt.NDArray[np.float32] | None = None  # Current observation
+
+        # --- Observation Space Definition ---
+        observation_space_dict = OrderedDict(
+            [
+                ("actuatorpos", Box(-180.0, 180.0, shape=(10,))),  # Motor positions
+                (
+                    "jointpos",
+                    Box(-180.0, 180.0, shape=(6,)),
+                ),  # Joint positions (unactuated)
+                (
+                    "framequat",
+                    Box(-1.0, 1.0, shape=(4,)),
+                ),  # Pelvis orientation (quaternion)
+                ("gyro", Box(-np.inf, np.inf, shape=(3,))),  # Pelvis angular velocity
+                (
+                    "accelerometer",
+                    Box(-np.inf, np.inf, shape=(3,)),
+                ),  # Pelvis linear acceleration
+                (
+                    "magnetometer",
+                    Box(-np.inf, np.inf, shape=(3,)),
+                ),  # Pelvis magnetic field vector
+                ("command", Box(-np.inf, np.inf, shape=(2,))),  # Target x, y velocity
+                (
+                    "contact_forces",
+                    Box(-np.inf, np.inf, shape=(6,)),
+                ),  # Left and right foot contact forces (first 3 components each)
+                (
+                    "clock",
+                    Box(-1.0, 1.0, shape=(2,)),
+                ),  # Phase (sin(2*pi*phi), cos(2*pi*phi))
+            ]
         )
-        self._healthy_feet_distance_y = env_config.get(
-            "feet_distance_y", DEFAULT_CONFIG["feet_distance_y"]
+        _obs_low = np.concatenate(
+            [space.low for space in observation_space_dict.values()]
         )
-        self._healthy_feet_distance_z = env_config.get(
-            "feet_distance_z", DEFAULT_CONFIG["feet_distance_z"]
+        _obs_high = np.concatenate(
+            [space.high for space in observation_space_dict.values()]
         )
-        self._healthy_dis_to_pelvis = env_config.get(
-            "feet_pelvis_height", DEFAULT_CONFIG["feet_pelvis_height"]
-        )
-        self._healthy_feet_height = env_config.get(
-            "feet_height", DEFAULT_CONFIG["feet_height"]
-        )
-        self._max_steps = env_config.get(
-            "max_simulation_steps", DEFAULT_CONFIG["max_simulation_steps"]
-        )
-        self.steps_per_cycle = env_config.get(
-            "steps_per_cycle", DEFAULT_CONFIG["steps_per_cycle"]
+        observation_space = Box(low=_obs_low, high=_obs_high, dtype=np.float32)
+
+        # --- MujocoEnv Initialization ---
+        frame_skip = int((1.0 / self.sim_fps) // self.mujoco_dt)
+        self.metadata["render_fps"] = int(np.round(1 / self.mujoco_dt / frame_skip))
+
+        MujocoEnv.__init__(
+            self,
+            model_path=str(Path(model_dir).absolute() / f"{self.model_file}.xml"),
+            frame_skip=frame_skip,
+            render_mode="rgb_array",  # Internal render mode for getting frames
+            observation_space=observation_space,
+            width=self.render_width,
+            height=self.render_height,
         )
 
-        self.obs = np.zeros(41)
-        self.max_roll = env_config.get("max_roll", DEFAULT_CONFIG["max_roll"])
-        self.max_pitch = env_config.get("max_pitch", DEFAULT_CONFIG["max_pitch"])
-        self.max_yaw = env_config.get("max_yaw", DEFAULT_CONFIG["max_yaw"])
-        self.training = env_config.get("is_training", DEFAULT_CONFIG["is_training"])
-        self.r = env_config.get("r", DEFAULT_CONFIG["r"])
-        self.a_swing = 0.0
-        self.a_stance = self.r
-        self.b_swing = self.a_stance
-        self.b_stance = 1.0
-        self.kappa = env_config.get("kappa", DEFAULT_CONFIG["kappa"])
-        self.x_cmd_vel = env_config.get("x_cmd_vel", DEFAULT_CONFIG["x_cmd_vel"])
-        self.y_cmd_vel = env_config.get("y_cmd_vel", DEFAULT_CONFIG["y_cmd_vel"])
-        self.z_cmd_vel = env_config.get("z_cmd_vel", DEFAULT_CONFIG["z_cmd_vel"])
-        self.model_file = env_config.get("model", "cassie")
+        # Ensure action space uses float32
+        self.action_space = Box(
+            self.action_space.low.astype(np.float32),
+            self.action_space.high.astype(np.float32),
+            dtype=np.float32,
+        )
 
-        # Massive Speedup by storing the von mises values and reusing them
+        # --- Post-Initialization Calculations ---
+        self.steps_per_cycle = int(
+            self.dt_per_cycle / (self.mujoco_dt * self.frame_skip)
+        )
+        # Precompute Von Mises values for efficiency
         phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
         self.von_mises_values_swing = np.array(
             [
@@ -102,7 +203,8 @@ class CassieEnv(MujocoEnv):
                     a=self.a_swing, b=self.b_swing, kappa=self.kappa, x=p
                 )
                 for p in phis
-            ]
+            ],
+            dtype=np.float32,
         )
         self.von_mises_values_stance = np.array(
             [
@@ -110,103 +212,59 @@ class CassieEnv(MujocoEnv):
                     a=self.a_stance, b=self.b_stance, kappa=self.kappa, x=p
                 )
                 for p in phis
-            ]
+            ],
+            dtype=np.float32,
         )
 
-        # dictionary of keys containing r_
-        self.reward_coeffs = {
-            k: v
-            for k, v in env_config.items()
-            if k.startswith("r_") or k.startswith("bias")
+        # Adaptive normalization ranges for reward components
+        self.exponents_ranges = {
+            "q_vx": (0.0, self.x_cmd_vel),
+            "q_vy": (0.0, self.y_cmd_vel),
+            "q_left_frc": (0.0, 2 * gravity * mass),
+            "q_right_frc": (0.0, 2 * gravity * mass),
+            "q_left_spd": (0.0, np.sqrt(self.x_cmd_vel**2 + self.y_cmd_vel**2)),
+            "q_right_spd": (0.0, np.sqrt(self.x_cmd_vel**2 + self.y_cmd_vel**2)),
+            "q_action": (0.0, 1.0),
+            "q_pelvis_acc": (0.0, 10.0),
+            "q_orientation": (0.0, 2 * np.sqrt(2)), # norm is between (0 and sqr(2 + 2 + 2 + 2))
+            "q_torque": (0.0, np.max(self.action_space.high)),
         }
-        if len(self.reward_coeffs) == 0:
-            self.reward_coeffs = {
-                k: v
-                for k, v in DEFAULT_CONFIG.items()
-                if k.startswith("r_") or k.startswith("bias")
-            }
-
-        self._reset_noise_scale = env_config.get(
-            "reset_noise_scale", DEFAULT_CONFIG["reset_noise_scale"]
-        )
-        self._force_max_norm = env_config.get(
-            "force_max_norm", DEFAULT_CONFIG["force_max_norm"]
-        )
-        self._push_freq = env_config.get("push_freq", DEFAULT_CONFIG["push_freq"])
-        self._push_duration = env_config.get(
-            "push_duration", DEFAULT_CONFIG["push_duration"]
-        )
-
-        self._push_probability = 1.0 / self._push_freq if self._push_freq > 0 else 0.0
-        self._pushing = -1
-
-        self.phi, self.steps = 0, 0
-
-        self.previous_action = torch.zeros(10)
-
-        self.observation_space_dict = dict(
-            sensors=Box(np.full(29, -np.inf), np.full(29, np.inf)),
-            command=Box(-np.inf, np.inf, shape=(2,)),
-            contact_forces=Box(-np.inf, np.inf, shape=(6,)),
-            clock=Box(-1.0, 1.0, shape=(2,)),
-        )
-        self.observation_space = Box(
-            low=np.concatenate([x.low for x in self.observation_space_dict.values()]).astype(np.float32),
-            high=np.concatenate([x.high for x in self.observation_space_dict.values()]).astype(np.float32),
-        )
-
-        self.reward_space = Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(5,),
-        )
-        self.metadata["render_fps"] = 2000 // env_config.get("frame_skip", 40)
-        MujocoEnv.__init__(
-            self,
-            model_path=str(Path(model_dir).absolute() / f"{self.model_file}.xml"),
-            frame_skip=env_config.get("frame_skip", 40),
-            render_mode=env_config.get("render_mode", None),
-            observation_space=self.observation_space,
-            width=env_config.get("width", 1920),
-            height=env_config.get("height", 1080),
-        )
-        self.render_mode = "rgb_array"
-        self.exponents_ranges = dict(
-            q_vx=(0.0, self.x_cmd_vel),
-            q_vy=(0.0, self.y_cmd_vel),
-            q_vz=(0.0, self.z_cmd_vel),
-            q_frc_left=(0.0, 1),
-            q_frc_right=(0.0, 1),
-            q_spd_left=(0.0, 1),
-            q_spd_right=(0.0, 1),
-            q_action=(0.0, 1),
-            pelvis_orientation=(0.0, 1),
-            q_feet_orientation=(0.0, 1),
-            q_torque=(0.0, 1),
-            q_pelvis_acc=(0.0, 1),
-            q_symmetric=(0.0, 1),
-        )
 
     @staticmethod
     @nb.jit(nopython=True, cache=True)
     def quat_to_rpy(
         quaternion: "npt.NDArray[np.float32]", radians: bool = True
     ) -> "npt.NDArray[np.float32]":
-        q = quaternion
-        yaw = np.arctan2(
-            2.0 * (q[1] * q[2] + q[3] * q[0]),
-            q[3] * q[3] - q[0] * q[0] - q[1] * q[1] + q[2] * q[2],
-        )
-        pitch = np.arcsin(-2.0 * (q[0] * q[2] - q[3] * q[1]))
-        roll = np.arctan2(
-            2.0 * (q[0] * q[1] + q[3] * q[2]),
-            q[3] * q[3] + q[0] * q[0] - q[1] * q[1] - q[2] * q[2],
-        )
-        return (
-            np.array([roll, pitch, yaw], dtype=np.float32)
-            if radians
-            else np.degrees(np.array([roll, pitch, yaw], dtype=np.float32))
-        )
+        """Converts a quaternion (w, x, y, z) to roll, pitch, yaw Euler angles."""
+        w, x, y, z = quaternion[0], quaternion[1], quaternion[2], quaternion[3]
+
+        # Roll (x-axis rotation)
+        sinr_cosp = 2.0 * (w * x + y * z)
+        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
+        roll = np.arctan2(sinr_cosp, cosr_cosp)
+
+        # Pitch (y-axis rotation)
+        sinp = 2.0 * (w * y - z * x)
+        # Handle gimbal lock: sinp approaches +/- 1
+        # Use np.clip to prevent arcsin domain errors due to floating point inaccuracies
+        if np.abs(sinp) >= 1:
+            # Assign pi/2 or -pi/2 directly
+            pitch = np.copysign(np.pi / 2.0, sinp)
+        else:
+            pitch = np.arcsin(sinp)
+
+        # Yaw (z-axis rotation)
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+        rpy = np.array([roll, pitch, yaw], dtype=np.float32)
+
+        return rpy if radians else np.degrees(rpy)
+
+    @property
+    def total_simulation_time(self):
+        return self.steps * self.dt
 
     @property
     def is_healthy(self):
@@ -222,7 +280,7 @@ class CassieEnv(MujocoEnv):
             self.isdone = "Pelvis not in range"
             self.done_n = 1.0
 
-        if not self.steps <= self._max_steps:
+        if self.total_simulation_time > self._max_sim_time:
             self.isdone = "Max steps reached"
             self.done_n = 2.0
 
@@ -272,7 +330,7 @@ class CassieEnv(MujocoEnv):
             self.done_n = 7.0
 
         pelvis_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
-        rpy_diff = np.abs(pelvis_rpy - self.init_rpy)
+        rpy_diff = np.abs(mod(pelvis_rpy - self.init_rpy, np.pi))
         if rpy_diff[0] > self.max_roll:
             self.isdone = "Roll too high"
             self.done_n = 8.0
@@ -293,6 +351,19 @@ class CassieEnv(MujocoEnv):
             else False
         )
         return terminated
+
+    @property
+    def truncated(self):
+        return self.total_simulation_time > self._max_sim_time
+
+    @property
+    def sensor_data(self) -> dict[str, np.ndarray]:
+        return {
+            group: np.array(
+                [self.data.sensor(s).data for s in sensors[group]]
+            ).flatten()
+            for group in sensors.keys()
+        }
 
     @staticmethod
     def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
@@ -344,7 +415,6 @@ class CassieEnv(MujocoEnv):
     def step(
         self, action: "npt.NDArray[np.float32]"
     ) -> tuple["npt.NDArray[np.float32]", float, bool, bool, dict[str, Any]]:
-        # self.symmetric_turn = self.phi < 0.5
         if self.symmetric_turn and self.symmetric_regulation:
             act = self.symmetric_action(action)
         else:
@@ -352,9 +422,37 @@ class CassieEnv(MujocoEnv):
 
         self.do_simulation(act, self.frame_skip)
 
-        m.mj_step(self.model, self.data)  # type: ignore
+        # Feet Contact Forces
+        contacts = [contact.geom2 for contact in self.data.contact]
+        self.contact_force_left_foot = np.zeros(6)
+        self.contact_force_right_foot = np.zeros(6)
+
+        if LEFT_CONTACT_IDX in contacts:
+            m.mj_contactForce(  # type: ignore
+                self.model,
+                self.data,
+                contacts.index(LEFT_CONTACT_IDX),
+                self.contact_force_left_foot,
+            )
+        if RIGHT_CONTACT_IDX in contacts:
+            m.mj_contactForce(  # type: ignore
+                self.model,
+                self.data,
+                contacts.index(RIGHT_CONTACT_IDX),
+                self.contact_force_right_foot,
+            )
+
+        # check if cassie hit the ground with feet
+        if (
+            self.data.xpos[LEFT_FOOT, 2] < 0.12
+            or self.data.xpos[RIGHT_FOOT, 2] < 0.12
+            or np.linalg.norm(self.contact_force_left_foot) > 100
+            or np.linalg.norm(self.contact_force_right_foot) > 100
+        ):
+            self.contact = True
+
         terminated = self.terminated
-        reward, rewards, metrics = self._compute_reward(act)
+        reward, metrics = self._compute_reward(act)
 
         self._set_obs()
         self.symmetric_turn = not self.symmetric_turn
@@ -370,7 +468,6 @@ class CassieEnv(MujocoEnv):
         self.previous_action = act
 
         info = {}
-        info["custom_rewards"] = rewards
 
         info["custom_metrics"] = {
             "distance": self.data.qpos[0],
@@ -397,42 +494,60 @@ class CassieEnv(MujocoEnv):
         else:
             self._pushing = -1
 
-        info["reward_dict"] = rewards
-
         self.obs = observation
         return (
             observation,
             reward,
             terminated,
-            self.done_n == 2,
+            self.truncated,
             info,
         )
+
+    def render(self) -> "bool | npt.NDArray[np.uint8]":
+        frame = super().render()
+
+        if self.local_render_mode == "rgb_array":
+            return frame
+        else:
+            height, width = frame.shape[:2]
+            aspect_ratio = width / height
+            initial_width = int(720 * aspect_ratio)
+            cv2.imshow("Cassie", cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            cv2.resizeWindow("Cassie", initial_width, 720)
+
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord("q") or key == 27:  # 'q' key or ESC key
+                self.is_running = False
+                cv2.destroyAllWindows()
+                return None
+            elif key == ord("r"):  # 'r' key to reset window size
+                cv2.resizeWindow("Cassie", 800, 600)
+
+            return True
 
     # resets the simulation
     def reset_model(self, seed: int = None) -> "npt.NDArray[np.float32]":
         # set seed
         np.random.seed(seed)
 
-        m.mj_inverse(self.model, self.data)  # type: ignore
-
         self.done_n = 0.0
 
         noise_low = -self._reset_noise_scale
         noise_high = self._reset_noise_scale
 
-        self.previous_action = np.zeros(10)
-        self.contact_force_left_foot = np.zeros(6)
-        self.contact_force_right_foot = np.zeros(6)
+        self.previous_action = np.zeros(10, dtype=np.float32)
+        self.contact_force_left_foot = np.zeros(6, dtype=np.float32)
+        self.contact_force_right_foot = np.zeros(6, dtype=np.float32)
 
         # self.phi = np.random.randint(0, self.steps_per_cycle) / self.steps_per_cycle
-        self.phi = 0
+        self.phi = 0.0
         self.steps = 0
 
         self.contact = False
 
-        # self.symmetric_turn = self.phi < 0.5
-        self.symmetric_turn = np.random.choice([True, False])
-        self.command = np.array([self.x_cmd_vel, self.y_cmd_vel])
+        self.symmetric_turn = bool(np.random.choice([True, False]))
+        self.command = np.array([self.x_cmd_vel, self.y_cmd_vel], dtype=np.float32)
 
         self._pushing = -1
 
@@ -445,10 +560,18 @@ class CassieEnv(MujocoEnv):
         )
 
         self.set_state(qpos, qvel)
-        self.data.xfrc_applied[PELVIS] = np.zeros(6)
-        self.init_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
+        self.data.xfrc_applied[PELVIS] = np.zeros(6)  # Reset external forces
+
+        # Ensure data is synced before accessing sensors
+        m.mj_forward(self.model, self.data)  # type: ignore
+
+        # Store initial orientation *after* setting state and running mj_forward
+        self.init_rpy = self.quat_to_rpy(self.sensor_data["framequat"])
 
         self._set_obs()
+
+        if self.obs is None:
+            raise RuntimeError("Observation was not set during reset.")
 
         return (
             self._get_symmetric_obs(self.obs)
@@ -457,227 +580,223 @@ class CassieEnv(MujocoEnv):
         )
 
     def normalize_reward(
-        self, rewards: dict[str, float], reward_coeffs: dict[str, float]
-    ):
-        reward_values = np.array([rewards[k] for k in rewards.keys()])
-        reward_coeffs_values = np.array(
-            [reward_coeffs[k] for k in rewards.keys() if k in reward_coeffs.keys()]
+        self, rewards: Dict[str, float], reward_coeffs: Dict[str, float]
+    ) -> float:
+        """Normalizes the reward components based on their coefficients."""
+        # Ensure order consistency (though dict order is guaranteed in Python 3.7+)
+        reward_keys = sorted(rewards.keys())
+        reward_values = np.array([rewards[k] for k in reward_keys], dtype=np.float32)
+        # Filter and align coefficients
+        coeffs_values = np.array(
+            [reward_coeffs[k] for k in reward_keys if k in reward_coeffs],
+            dtype=np.float32,
         )
-        return self._normalize_reward(reward_values, reward_coeffs_values)
+
+        if len(reward_values) != len(coeffs_values):
+            log.warning(
+                f"Mismatch between reward components ({len(reward_values)}) and coefficients ({len(coeffs_values)})"
+            )
+            # Attempt to match based on available keys - this might indicate a config error
+            matched_keys = [k for k in reward_keys if k in reward_coeffs]
+            reward_values = np.array(
+                [rewards[k] for k in matched_keys], dtype=np.float32
+            )
+            coeffs_values = np.array(
+                [reward_coeffs[k] for k in matched_keys], dtype=np.float32
+            )
+
+        if np.sum(coeffs_values) == 0:
+            log.warning(
+                "Sum of reward coefficients is zero, returning raw sum of rewards."
+            )
+            return np.sum(reward_values)
+
+        # Use the Numba-optimized function
+        return self._normalize_reward(reward_values, coeffs_values)
 
     def _set_obs(self):
-        p = np.array(
-            [np.sin((2 * np.pi * (self.phi))), np.cos((2 * np.pi * (self.phi)))]
+        """Constructs the observation vector from sensor data and internal state."""
+        # Calculate clock signal
+        clock_signal = np.array(
+            [np.sin((2 * np.pi * self.phi)), np.cos((2 * np.pi * self.phi))]
         )
 
-        sensor_data = self.data.sensordata
+        # Get sensor data
+        sensor_readings = self.sensor_data
+
+        # Assemble observation vector
         self.obs = np.concatenate(
             [
-                sensor_data,  # 0 - 28
-                self.command,  # 29 - 31
-                np.concatenate(
-                    [
-                        self.contact_force_left_foot[:3],
-                        self.contact_force_right_foot[:3],
-                    ]
-                ),  # 32 - 37
-                np.array([*p]),  # 38 - 39
+                sensor_readings["actuatorpos"],  # 0-9
+                sensor_readings["jointpos"],  # 10-15
+                sensor_readings["framequat"],  # 16-19
+                sensor_readings["gyro"],  # 20-22
+                sensor_readings["accelerometer"],  # 23-25
+                sensor_readings["magnetometer"],  # 26-28
+                self.command,  # 29-30
+                self.contact_force_left_foot[:3],  # 31-33 (Use only first 3 components)
+                self.contact_force_right_foot[
+                    :3
+                ],  # 34-36 (Use only first 3 components)
+                clock_signal,  # 37-38
             ]
-        ).astype(np.float32)
+        ).astype(np.float32)  # Ensure float32 type
 
     def _get_obs(self):
-        return self.obs
-
-    def _normalize_quantity(self, name, q):
-        k = 5.0
-        # Update the range
-        self.exponents_ranges[name] = (
-            (
-                (k - 1) * self.exponents_ranges[name][0]
-                + min(self.exponents_ranges[name][0], q)
+        """Returns the current observation."""
+        if self.obs is None:
+            # This might happen if called before the first reset or step
+            log.warning(
+                "Attempted to get observation before it was set. Performing reset."
             )
-            / k,
-            (
-                (k - 1) * self.exponents_ranges[name][1]
-                + max(self.exponents_ranges[name][1], q)
-            )
-            / k,
-        )
+            self.reset()  # Call reset to ensure obs is initialized
+        # We assume self.reset() correctly sets self.obs
+        return self.obs  # type: ignore
 
-        # Normalize the quantity
-        return (q - self.exponents_ranges[name][0]) / (
-            self.exponents_ranges[name][1] - self.exponents_ranges[name][0] + 1e-6
-        )
+    def _normalize_quantity(self, name: str, q: float) -> float:
+        """
+        Applies exponential moving average to update normalization range
+        and returns the normalized quantity.
+        """
+        k = 2.0  # Smoothing factor for EMA
+        current_min, current_max = self.exponents_ranges[name]
+
+        # Update range using EMA
+        new_min = ((k - 1) * current_min + max(q, current_min)) / k
+
+        new_min = current_min
+        new_max = ((k - 1) * current_max + min(q, current_max)) / k
+        new_max = current_max
+        # Ensure min <= max
+        new_min = min(new_min, new_max)
+        new_max = max(new_min, new_max) + 1e-6
+
+        self.exponents_ranges[name] = (new_min, new_max)
+
+        # Normalize the quantity using the updated range
+        range_size = new_max - new_min
+        # Prevent division by zero or near-zero
+        if range_size < 1e-6:
+            return 0.5  # Return midpoint if range is collapsed
+        else:
+            normalized_q = (q - new_min) / range_size
+            # Clamp result to [0, 1] as normalization might slightly exceed bounds due to EMA lag
+            return np.clip(normalized_q, 0.0, 1.0)
 
     # computes the reward
-    def _compute_reward(self, action: "npt.NDArray[np.float32]"):
-        # Extract some proxies
-        qvel = self.data.qvel.flat.copy()
+    def _compute_reward(
+        self, action: "npt.NDArray[np.float32]"
+    ) -> tuple[float, dict[str, float], dict[str, float]]:
+        """Computes the reward components and the final reward value."""
 
-        # # Feet Contact Forces
-        contacts = [contact.geom2 for contact in self.data.contact]
-        self.contact_force_left_foot = np.zeros(6)
+        # --- Phase-Dependent Reward Modulation ---
 
-        self.contact_force_right_foot = np.zeros(6)
-
-        if LEFT_CONTACT_IDX in contacts:
-            m.mj_contactForce(  # type: ignore
-                self.model,
-                self.data,
-                contacts.index(LEFT_CONTACT_IDX),
-                self.contact_force_left_foot,
-            )
-        if RIGHT_CONTACT_IDX in contacts:
-            m.mj_contactForce(  # type: ignore
-                self.model,
-                self.data,
-                contacts.index(RIGHT_CONTACT_IDX),
-                self.contact_force_right_foot,
-            )
-
-        # check if cassie hit the ground with feet
-        if (
-            # self.data.xpos[LEFT_FOOT, 2] < 0.08
-            # or self.data.xpos[RIGHT_FOOT, 2] < 0.08
-            np.linalg.norm(self.contact_force_left_foot) > 100
-            or np.linalg.norm(self.contact_force_right_foot) > 100
-        ):
-            self.contact = True
-
-        # Some metrics to be used in the reward function
-        q_vx = np.exp(
-            -6.0
-            * self._normalize_quantity(
-                "q_vx",
-                np.linalg.norm(np.array([qvel[0]]) - np.array([self.command[0]])),
-            )
-        )
-        q_vy = np.exp(
-            -6.0
-            * self._normalize_quantity(
-                "q_vy",
-                np.linalg.norm(np.array([qvel[1]]) - np.array([self.command[1]])),
-            )
-        )
-        q_vz = np.exp(
-            multiplicators["q_vz"]
-            * np.linalg.norm(np.array([qvel[2]]) - np.array([self.z_cmd_vel])),
-        )
-
-        q_left_frc = np.exp(
-            -6.0
-            * self._normalize_quantity(
-                "q_frc_left", np.linalg.norm(self.contact_force_left_foot)
-            )
-        )
-        q_right_frc = np.exp(
-            -6.0
-            * self._normalize_quantity(
-                "q_frc_right", np.linalg.norm(self.contact_force_right_foot)
-            )
-        )
-        q_left_spd = np.exp(
-            -6.0 * self._normalize_quantity("q_spd_left", np.linalg.norm(qvel[12]))
-        )
-        q_right_spd = np.exp(
-            -6.0 * self._normalize_quantity("q_spd_right", np.linalg.norm(qvel[19]))
-        )
-        q_action_diff = np.exp(
-            -6.0
-            * self._normalize_quantity(
-                "q_action",
-                float(
-                    action_dist(
-                        np.array(action).reshape(1, -1),
-                        np.array(self.previous_action).reshape(1, -1),
-                        self.action_space.high,
-                        self.action_space.low,
-                    )
-                ),
-            )
-        )
-
-        q_orientation = np.exp(
-            -6.0
-            * self._normalize_quantity(
-                "pelvis_orientation",
-                np.linalg.norm(
-                    self.data.sensor("pelvis-orientation").data - FORWARD_QUARTERNIONS
-                ),
-            )
-        )
-        q_torque = np.exp(
-            -6.0 * self._normalize_quantity("q_torque", np.linalg.norm(action))
-        )
-
-        q_pelvis_acc = np.exp(
-            -6.0
-            * self._normalize_quantity(
-                "q_pelvis_acc",
-                (np.linalg.norm(self.data.sensor("pelvis-angular-velocity").data)),
-            )
-        )
-
+        # Helper functions using precomputed Von Mises values
         def i_swing_frc(phi):
-            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
-            return self.von_mises_values_swing[index]
+            """Importance of low force during swing phase."""
+            idx = int(round((phi % 1.0) * self.steps_per_cycle)) % self.steps_per_cycle
+            return self.von_mises_values_swing[idx]
 
         def i_stance_spd(phi):
-            index = round(phi * self.steps_per_cycle) % self.steps_per_cycle
-            return self.von_mises_values_stance[index]
+            """Importance of low speed during stance phase."""
+            idx = int(round((phi % 1.0) * self.steps_per_cycle)) % self.steps_per_cycle
+            return self.von_mises_values_stance[idx]
 
         def c_frc(phi):
+            """Coefficient for force reward based on phase."""
             return c_swing_frc * i_swing_frc(phi)
 
         def c_spd(phi):
+            """Coefficient for speed reward based on phase."""
             return c_stance_spd * i_stance_spd(phi)
 
-        # Compute the rewards
+        # Extract necessary simulation data
+        qvel = self.data.qvel.copy()  # Use .copy() to avoid modifying internal data
+        pelvis_quat = self.sensor_data["framequat"]
+        pelvis_ang_vel = self.sensor_data["gyro"]
 
-        ## Compute Command Reward
-        r_cmd = (+1.0 * q_vx + 0.8 * q_vy + 0.2 * q_orientation + 0.2 * q_vz) / (
-            1.0 + 0.8 + 0.2 + 0.2
-        )
+        # --- Calculate Reward Components (q-values, exponential form) ---
 
-        ## Compute Smoothness Reward
-        r_smooth = (1.0 * q_action_diff + 0.5 * q_torque + 0.5 * q_pelvis_acc) / (
-            1.0 + 0.5 + 0.5
-        )
+        # Velocity Tracking (Pelvis X/Y Velocity)
 
-        ## Compute Bipedal Reward
-        r_biped = 0
-        r_biped += c_frc(self.phi + THETA_LEFT) * q_left_frc
-        r_biped += c_frc(self.phi + THETA_RIGHT) * q_right_frc
-        r_biped += c_spd(self.phi + THETA_LEFT) * q_left_spd
-        r_biped += c_spd(self.phi + THETA_RIGHT) * q_right_spd
-        r_biped /= 2.0
+        raw_quantities = {
+            "q_vx": abs(qvel[0] - self.command[0]),
+            "q_vy": abs(qvel[1] - self.command[1]),
+            "q_left_frc": np.linalg.norm(self.contact_force_left_foot),
+            "q_right_frc": np.linalg.norm(self.contact_force_right_foot),
+            "q_left_spd": abs(qvel[12]),
+            "q_right_spd": abs(qvel[19]),
+            "q_action": action_dist(
+                action.reshape(1, -1),  # Reshape for function expected input
+                self.previous_action.reshape(1, -1),
+                self.action_space.high,
+                self.action_space.low,
+            )[0],
+            "q_pelvis_acc": np.linalg.norm(pelvis_ang_vel),
+            "q_torque": np.linalg.norm(action),
+            "q_orientation": np.linalg.norm(pelvis_quat - FORWARD_QUARTERNIONS),
+        }
 
-        rewards = {
+        normalized_quantities = {
+            k: self._normalize_quantity(k, v) for k, v in raw_quantities.items()
+        }
+
+        after_exponential = {
+            k: np.exp(-OMEGA * v) for k, v in normalized_quantities.items()
+        }
+
+        # --- Combine Reward Components ---
+
+        # Command Following Reward
+        r_cmd = (
+            1.0 * after_exponential["q_vx"]
+            + 0.8 * after_exponential["q_vy"]
+            + 0.2 * after_exponential["q_orientation"]
+        ) / (1.0 + 0.8 + 0.2)
+
+        # Smoothness Reward
+        r_smooth = (
+            1.0 * after_exponential["q_action"]
+            + 0.5 * after_exponential["q_torque"]
+            + 0.5 * after_exponential["q_pelvis_acc"]
+        ) / (1.0 + 0.5 + 0.5)
+
+        # Bipedal Locomotion Reward (Phase-modulated foot forces and speeds)
+        r_biped = 0.0
+        r_biped += (
+            c_frc(self.phi + THETA_LEFT) * after_exponential["q_left_frc"]
+        )  # Penalize left foot force during its swing phase
+        r_biped += (
+            c_frc(self.phi + THETA_RIGHT) * after_exponential["q_right_frc"]
+        )  # Penalize right foot force during its swing phase
+        r_biped += (
+            c_spd(self.phi + THETA_LEFT) * after_exponential["q_left_spd"]
+        )  # Penalize left foot speed during its stance phase
+        r_biped += (
+            c_spd(self.phi + THETA_RIGHT) * after_exponential["q_right_spd"]
+        )  # Penalize right foot speed during its stance phase
+        r_biped /= 2.0  # Average the four components
+
+        # Store individual reward components
+        rewards: Dict[str, float] = {
             "r_biped": r_biped,
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
         }
 
-        reward = self.normalize_reward(
-            rewards, self.reward_coeffs
-        ) + self.reward_coeffs.get("bias", 1.0)
+        # Calculate final weighted reward using coefficients from config
+        total_reward = self.normalize_reward(rewards, self.reward_coeffs)
 
+        # Add bias term (often used as a small penalty per step to encourage efficiency)
+        total_reward += self.reward_coeffs.get("bias", -0.01)
+
+        # --- Metrics for Logging/Debugging ---
         metrics = {
-            "dis_x": self.data.geom_xpos[16, 0],
-            "dis_y": self.data.geom_xpos[16, 1],
-            "dis_z": self.data.geom_xpos[16, 2],
-            "vel_x": self.data.qvel[0],
-            "vel_y": self.data.qvel[1],
-            "vel_z": self.data.qvel[2],
-            "feet_distance_x": abs(
-                self.data.xpos[LEFT_FOOT, 0] - self.data.xpos[RIGHT_FOOT, 0]
-            ),
-            "feet_distance_y": abs(
-                self.data.xpos[LEFT_FOOT, 1] - self.data.xpos[RIGHT_FOOT, 1]
-            ),
-            "feet_distance_z": abs(
-                self.data.xpos[LEFT_FOOT, 2] - self.data.xpos[RIGHT_FOOT, 2]
-            ),
+            "raw_quantities": raw_quantities,
+            "normalized_quantities": normalized_quantities,
+            "after_exponential": after_exponential,
+            "rewards": rewards,
+            "total_reward": total_reward,
         }
-        return reward, rewards, metrics
 
+        return total_reward, metrics
