@@ -30,8 +30,8 @@ training:
       height: 1080
       reset_noise_scale: 0.05
       force_max_norm: 0.0
-      push_freq: 80 # Every 80 steps
-      push_duration: 5 # 5 steps
+      push_prob: 0.01 #  1% of the time
+      push_duration: 0.1 # seconds
       bias: -0.1 # Make sure reward can be negative
       r_biped: 1.0
       r_cmd : 0.5

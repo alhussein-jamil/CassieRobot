@@ -80,8 +80,7 @@ class CassieEnv(MujocoEnv):
         self.model_file: str = config["model"]
         self._reset_noise_scale: float = config["reset_noise_scale"]
         self._force_max_norm: float = config["force_max_norm"]
-        self._push_freq: int = config["push_freq"]
-        self._push_duration: int = config["push_duration"]
+        self._push_prob: float = config["push_prob"]
         self.render_width: int = config["width"]
         self.render_height: int = config["height"]
         self.sim_fps: int = config["sim_fps"]
@@ -99,10 +98,6 @@ class CassieEnv(MujocoEnv):
         self.a_stance: float = self.r  # Mean phase for stance speed distribution
         self.b_swing: float = self.a_stance  # End phase for swing force distribution
         self.b_stance: float = 1.0  # End phase for stance speed distribution
-
-        self._push_probability: float = (
-            1.0 / self._push_freq if self._push_freq > 0 else 0.0
-        )
         self._pushing: int = (
             -1
         )  # Tracks duration of applied push force (-1: not pushing)
@@ -184,6 +179,7 @@ class CassieEnv(MujocoEnv):
             height=self.render_height,
         )
 
+
         # Ensure action space uses float32
         self.action_space = Box(
             self.action_space.low.astype(np.float32),
@@ -195,6 +191,10 @@ class CassieEnv(MujocoEnv):
         self.steps_per_cycle = int(
             self.dt_per_cycle / (self.mujoco_dt * self.frame_skip)
         )
+
+        self._push_duration: int = int(config["push_duration"] / self.dt)
+
+
         # Precompute Von Mises values for efficiency
         phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
         self.von_mises_values_swing = np.array(
@@ -489,7 +489,7 @@ class CassieEnv(MujocoEnv):
         full_force = np.concatenate([random_force_xy, np.array([0.0] * 4)])
 
         sampled = np.random.uniform(0, 1)
-        if sampled < self._push_probability and self._pushing == -1:
+        if sampled < self._push_prob and self._pushing == -1:
             self._pushing = 0
 
         if (

@@ -21,7 +21,7 @@ DEFAULT_CONFIG = {
     "render_mode": "rgb_array",
     "reset_noise_scale": 0.01,
     "force_max_norm": 0.0,
-    "push_freq": 0,
+    "push_prob": 0,
     "push_duration": 0,
     "bias": -0.01,
     "r_biped": 0.0,
