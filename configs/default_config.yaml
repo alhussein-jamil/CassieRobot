@@ -34,6 +34,7 @@ training:
       push_duration: 0.1 # seconds
       bias: -0.1 # Make sure reward can be negative
       r_biped: 1.0
+      r_feet_parallel: 0.5
       r_cmd : 0.5
       r_smooth: 0.1
     render_env: false

@@ -90,7 +90,7 @@ class CassieEnv(MujocoEnv):
         self.reward_coeffs = {
             k: v
             for k, v in config.items()
-            if k.startswith("r_") or k.startswith("bias")
+            if k.startswith("r_")
         }
 
         # --- Derived Parameters & State ---
@@ -228,6 +228,8 @@ class CassieEnv(MujocoEnv):
             "q_pelvis_acc": (0.0, 10.0),
             "q_orientation": (0.0, 2 * np.sqrt(2)), # norm is between (0 and sqr(2 + 2 + 2 + 2))
             "q_torque": (0.0, np.max(self.action_space.high)),
+            "q_left_foot_pitch": (0.0, np.pi/2), # Pitch range for foot parallel to ground
+            "q_right_foot_pitch": (0.0, np.pi/2) # Pitch range for foot parallel to ground
         }
 
     @staticmethod
@@ -721,6 +723,12 @@ class CassieEnv(MujocoEnv):
         pelvis_quat = self.sensor_data["framequat"]
         pelvis_ang_vel = self.sensor_data["gyro"]
 
+        # Get feet orientations
+        left_foot_quat = self.data.xquat[LEFT_FOOT]
+        right_foot_quat = self.data.xquat[RIGHT_FOOT]
+        left_foot_rpy = self.quat_to_rpy(left_foot_quat)
+        right_foot_rpy = self.quat_to_rpy(right_foot_quat)
+
         # --- Calculate Reward Components (q-values, exponential form) ---
 
         # Velocity Tracking (Pelvis X/Y Velocity)
@@ -741,6 +749,8 @@ class CassieEnv(MujocoEnv):
             "q_pelvis_acc": np.linalg.norm(pelvis_ang_vel),
             "q_torque": np.linalg.norm(action),
             "q_orientation": np.linalg.norm(pelvis_quat - FORWARD_QUARTERNIONS),
+            "q_left_foot_pitch": abs(left_foot_rpy[1]) if np.linalg.norm(self.contact_force_left_foot) > 0.01 else 0.0,
+            "q_right_foot_pitch": abs(right_foot_rpy[1]) if np.linalg.norm(self.contact_force_right_foot) > 0.01 else 0.0
         }
 
         normalized_quantities = {
@@ -783,11 +793,18 @@ class CassieEnv(MujocoEnv):
         )  # Penalize right foot speed during its stance phase
         r_biped /= 2.0  # Average the four components
 
+        # Feet Parallel to Ground Reward (encourage pitch close to 0 during contact)
+        r_feet_parallel = (
+            1.0 * after_exponential["q_left_foot_pitch"]
+            + 1.0 * after_exponential["q_right_foot_pitch"]
+        ) / 2.0
+
         # Store individual reward components
         rewards: Dict[str, float] = {
             "r_biped": r_biped,
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
+            "r_feet_parallel": r_feet_parallel
         }
 
         # Calculate final weighted reward using coefficients from config

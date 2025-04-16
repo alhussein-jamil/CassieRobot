@@ -27,6 +27,7 @@ DEFAULT_CONFIG = {
     "r_biped": 0.0,
     "r_cmd": 1.0,
     "r_smooth": 0.0,
+    "r_feet_parallel": 0.5,
     "is_training": True,
     "max_roll": 2.0,
     "max_pitch": 2.0,
