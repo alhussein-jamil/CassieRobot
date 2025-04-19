@@ -87,11 +87,7 @@ class CassieEnv(MujocoEnv):
         self.local_render_mode: str = config["render_mode"]
 
         # Extract reward coefficients (keys starting with 'r_' or 'bias')
-        self.reward_coeffs = {
-            k: v
-            for k, v in config.items()
-            if k.startswith("r_")
-        }
+        self.reward_coeffs = {k: v for k, v in config.items() if k.startswith("r_")}
 
         # --- Derived Parameters & State ---
         self.a_swing: float = 0.0  # Mean phase for swing force distribution
@@ -179,7 +175,6 @@ class CassieEnv(MujocoEnv):
             height=self.render_height,
         )
 
-
         # Ensure action space uses float32
         self.action_space = Box(
             self.action_space.low.astype(np.float32),
@@ -193,7 +188,6 @@ class CassieEnv(MujocoEnv):
         )
 
         self._push_duration: int = int(config["push_duration"] / self.dt)
-
 
         # Precompute Von Mises values for efficiency
         phis = np.linspace(0, 1, self.steps_per_cycle, endpoint=False)
@@ -226,10 +220,19 @@ class CassieEnv(MujocoEnv):
             "q_right_spd": (0.0, np.sqrt(self.x_cmd_vel**2 + self.y_cmd_vel**2)),
             "q_action": (0.0, 1.0),
             "q_pelvis_acc": (0.0, 10.0),
-            "q_orientation": (0.0, 2 * np.sqrt(2)), # norm is between (0 and sqr(2 + 2 + 2 + 2))
+            "q_orientation": (
+                0.0,
+                2 * np.sqrt(2),
+            ),  # norm is between (0 and sqr(2 + 2 + 2 + 2))
             "q_torque": (0.0, np.max(self.action_space.high)),
-            "q_left_foot_pitch": (0.0, np.pi/2), # Pitch range for foot parallel to ground
-            "q_right_foot_pitch": (0.0, np.pi/2) # Pitch range for foot parallel to ground
+            "q_left_foot_pitch": (
+                0.0,
+                np.pi / 2,
+            ),  # Pitch range for foot parallel to ground
+            "q_right_foot_pitch": (
+                0.0,
+                np.pi / 2,
+            ),  # Pitch range for foot parallel to ground
         }
 
     @staticmethod
@@ -477,10 +480,16 @@ class CassieEnv(MujocoEnv):
 
         info = {}
 
+        # Only keep essential metrics
         info["custom_metrics"] = {
             "distance": self.data.qpos[0],
             "height": self.data.qpos[2],
         }
+
+        # Add reward components directly to custom_metrics
+        if "rewards" in metrics:
+            for reward_name, reward_value in metrics["rewards"].items():
+                info["custom_metrics"][reward_name] = reward_value
 
         info["other_metrics"] = metrics
 
@@ -694,7 +703,7 @@ class CassieEnv(MujocoEnv):
     # computes the reward
     def _compute_reward(
         self, action: "npt.NDArray[np.float32]"
-    ) -> tuple[float, dict[str, float], dict[str, float]]:
+    ) -> tuple[float, dict[str, float]]:
         """Computes the reward components and the final reward value."""
 
         # --- Phase-Dependent Reward Modulation ---
@@ -749,8 +758,12 @@ class CassieEnv(MujocoEnv):
             "q_pelvis_acc": np.linalg.norm(pelvis_ang_vel),
             "q_torque": np.linalg.norm(action),
             "q_orientation": np.linalg.norm(pelvis_quat - FORWARD_QUARTERNIONS),
-            "q_left_foot_pitch": abs(left_foot_rpy[1]) if np.linalg.norm(self.contact_force_left_foot) > 0.01 else 0.0,
-            "q_right_foot_pitch": abs(right_foot_rpy[1]) if np.linalg.norm(self.contact_force_right_foot) > 0.01 else 0.0
+            "q_left_foot_pitch": abs(left_foot_rpy[1])
+            if np.linalg.norm(self.contact_force_left_foot) > 0.01
+            else 0.0,
+            "q_right_foot_pitch": abs(right_foot_rpy[1])
+            if np.linalg.norm(self.contact_force_right_foot) > 0.01
+            else 0.0,
         }
 
         normalized_quantities = {
@@ -804,7 +817,7 @@ class CassieEnv(MujocoEnv):
             "r_biped": r_biped,
             "r_cmd": r_cmd,
             "r_smooth": r_smooth,
-            "r_feet_parallel": r_feet_parallel
+            "r_feet_parallel": r_feet_parallel,
         }
 
         # Calculate final weighted reward using coefficients from config

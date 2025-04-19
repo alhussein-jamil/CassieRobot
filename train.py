@@ -147,7 +147,7 @@ class TrainingManager:
         # Ensure fps are positive to avoid division by zero or unexpected behavior
         if render_fps <= 0 or sim_fps <= 0:
             logger.warning("render_fps or sim_fps is non-positive. Skipping rendering.")
-            render_fps = 0 # Effectively disable rendering
+            render_fps = 0  # Effectively disable rendering
 
         # Run episode
         while not done:
@@ -169,8 +169,8 @@ class TrainingManager:
             # Check if it's time to render the next frame
             should_render = False
             if render_fps > 0:
-                 # Condition ensures rendering happens at the correct frequency
-                 if steps * render_fps >= render_step * sim_fps:
+                # Condition ensures rendering happens at the correct frequency
+                if steps * render_fps >= render_step * sim_fps:
                     should_render = True
                     render_step += 1
 
