@@ -2,40 +2,40 @@ training:
   environment:
     env: cassie-v0
     clip_actions: false
-    normalize_actions: false
+    normalize_actions: true
     env_config:
       # The constants are defined here
       symmetric_regulation: true
       dt_per_cycle: 1.0
       r : 0.6
       kappa: 20
-      x_cmd_vel: 0.5
+      x_cmd_vel: 0.7
       y_cmd_vel: 0.0
       z_cmd_vel: 0
       terminate_when_unhealthy: true
       max_simulation_time: 10 # seconds
       pelvis_height: [0.5,1.5]
-      feet_distance_x: 1.2
+      feet_distance_x: 0.5
       feet_distance_y: 0.6
       feet_distance_z: 0.5
       feet_pelvis_height: 0.20
-      max_roll: 2.0
-      max_pitch: 2.0
+      max_roll: 1.0
+      max_pitch: 1.0
       max_yaw: 10.0
       feet_height: 0.30
       model: cassie
-      sim_fps: 60
+      sim_fps: 40
       render_mode: rgb_array
       width: 1920
       height: 1080
-      reset_noise_scale: 0.05
-      force_max_norm: 0.0
+      reset_noise_scale: 0.08
+      force_max_norm: 15.0
       push_prob: 0.01 #  1% of the time
       push_duration: 0.1 # seconds
-      bias: -0.1 # Make sure reward can be negative
-      r_biped: 1.0
-      r_feet_parallel: 0.5
-      r_cmd : 0.5
+      bias: -0.5 # Make sure reward can be negative
+      r_biped: 0.8
+      r_feet_parallel: 0.2
+      r_cmd : 1.0
       r_smooth: 0.1
     render_env: false
 

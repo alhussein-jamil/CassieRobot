@@ -214,8 +214,8 @@ class CassieEnv(MujocoEnv):
         self.exponents_ranges = {
             "q_vx": (0.0, self.x_cmd_vel),
             "q_vy": (0.0, self.y_cmd_vel),
-            "q_left_frc": (0.0, 2 * gravity * mass),
-            "q_right_frc": (0.0, 2 * gravity * mass),
+            "q_left_frc": (0.0, gravity * mass / 15.0),
+            "q_right_frc": (0.0, gravity * mass / 15.0),
             "q_left_spd": (0.0, np.sqrt(self.x_cmd_vel**2 + self.y_cmd_vel**2)),
             "q_right_spd": (0.0, np.sqrt(self.x_cmd_vel**2 + self.y_cmd_vel**2)),
             "q_action": (0.0, 1.0),
@@ -490,6 +490,18 @@ class CassieEnv(MujocoEnv):
         if "rewards" in metrics:
             for reward_name, reward_value in metrics["rewards"].items():
                 info["custom_metrics"][reward_name] = reward_value
+
+        # Add coefficient components directly to custom_metrics
+        if "coefficients" in metrics:
+            for coeff_name, coeff_value in metrics["coefficients"].items():
+                info["custom_metrics"][coeff_name] = coeff_value
+
+        # Add specific 'after_exponential' components to custom_metrics
+        exp_keys_to_add = ["q_left_frc", "q_right_frc", "q_left_spd", "q_right_spd"]
+        if "after_exponential" in metrics:
+            for key in exp_keys_to_add:
+                if key in metrics["after_exponential"]:
+                    info["custom_metrics"][f"exp_{key}"] = metrics["after_exponential"][key]
 
         info["other_metrics"] = metrics
 
@@ -826,11 +838,19 @@ class CassieEnv(MujocoEnv):
         # Add bias term (often used as a small penalty per step to encourage efficiency)
         total_reward += self.reward_coeffs.get("bias", -0.01)
 
+        coeff = {
+            "c_frc_left": c_frc(self.phi + THETA_LEFT),
+            "c_frc_right": c_frc(self.phi + THETA_RIGHT),
+            "c_spd_left": c_spd(self.phi + THETA_LEFT),
+            "c_spd_right": c_spd(self.phi + THETA_RIGHT),
+        }
+
         # --- Metrics for Logging/Debugging ---
         metrics = {
             "raw_quantities": raw_quantities,
             "normalized_quantities": normalized_quantities,
             "after_exponential": after_exponential,
+            "coefficients": coeff,
             "rewards": rewards,
             "total_reward": total_reward,
         }
