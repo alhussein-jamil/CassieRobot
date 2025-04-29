@@ -57,7 +57,7 @@ class CassieEnv(MujocoEnv):
             config.update(env_config)
 
         # --- Configuration Parameters ---
-        self.symmetric_regulation: bool = config["symmetric_regulation"]
+        self.symmetric_regulation: str = config["symmetric_regulation"]
         self._terminate_when_unhealthy: bool = config["terminate_when_unhealthy"]
         self._healthy_pelvis_z_range: Tuple[float, float] = config["pelvis_height"]
         self._healthy_feet_distance_x: float = config["feet_distance_x"]
@@ -370,6 +370,14 @@ class CassieEnv(MujocoEnv):
             for group in sensors.keys()
         }
 
+    def update_symmetric_turn(self):
+        if self.symmetric_regulation == "alternating":
+            self.symmetric_turn = not self.symmetric_turn
+        elif self.symmetric_regulation == "random":
+            self.symmetric_turn = np.random.rand() < 0.5
+        else:
+            self.symmetric_turn = False
+
     @staticmethod
     def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
         symmetric_obs = deepcopy(obs)
@@ -426,11 +434,8 @@ class CassieEnv(MujocoEnv):
     def step(
         self, action: "npt.NDArray[np.float32]"
     ) -> tuple["npt.NDArray[np.float32]", float, bool, bool, dict[str, Any]]:
-        if self.symmetric_turn and self.symmetric_regulation:
-            act = self.symmetric_action(action)
-        else:
-            act = action
 
+        act = self.symmetric_action(action) if self.symmetric_turn else action
         self.do_simulation(act, self.frame_skip)
 
         # Feet Contact Forces
@@ -466,11 +471,9 @@ class CassieEnv(MujocoEnv):
         reward, metrics = self._compute_reward(act)
 
         self._set_obs()
-        self.symmetric_turn = not self.symmetric_turn
-        if self.symmetric_turn and self.symmetric_regulation:
-            observation = self._get_symmetric_obs(self.obs)
-        else:
-            observation = self.obs
+
+        self.update_symmetric_turn()
+        observation = self._get_symmetric_obs(self.obs) if self.symmetric_turn else self.obs
 
         self.steps += 1
         self.phi += 1.0 / self.steps_per_cycle
@@ -602,9 +605,10 @@ class CassieEnv(MujocoEnv):
         if self.obs is None:
             raise RuntimeError("Observation was not set during reset.")
 
+        self.update_symmetric_turn()
         return (
             self._get_symmetric_obs(self.obs)
-            if self.symmetric_turn and self.symmetric_regulation
+            if self.symmetric_turn
             else self.obs
         )
 

@@ -5,7 +5,7 @@ training:
     normalize_actions: false
     env_config:
       # The constants are defined here
-      symmetric_regulation: true
+      symmetric_regulation: random
       dt_per_cycle: 1.0
       r : 0.6
       kappa: 20
