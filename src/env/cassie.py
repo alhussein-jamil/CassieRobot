@@ -183,9 +183,7 @@ class CassieEnv(MujocoEnv):
         )
 
         # --- Post-Initialization Calculations ---
-        self.steps_per_cycle = int(
-            self.dt_per_cycle / (self.mujoco_dt * self.frame_skip)
-        )
+        self.steps_per_cycle = int(self.dt_per_cycle / self.dt)
 
         self._push_duration: int = int(config["push_duration"] / self.dt)
 
@@ -378,6 +376,33 @@ class CassieEnv(MujocoEnv):
         else:
             self.symmetric_turn = False
 
+    def _set_obs(self):
+        """Constructs the observation vector from sensor data and internal state."""
+        # Calculate clock signal
+        clock_signal = np.array(
+            [np.sin((2 * np.pi * self.phi)), np.cos((2 * np.pi * self.phi))]
+        )
+
+        # Get sensor data
+        sensor_readings = self.sensor_data
+
+        sensor_readings_np = np.concatenate(
+            [sensor_readings[group] for group in sensors.keys()]
+        )
+
+        # Assemble observation vector
+        self.obs = np.concatenate(
+            [
+                sensor_readings_np,
+                self.command,  # 29-30
+                self.contact_force_left_foot[:3],  # 31-33 (Use only first 3 components)
+                self.contact_force_right_foot[
+                    :3
+                ],  # 34-36 (Use only first 3 components)
+                clock_signal,  # 37-38
+            ]
+        ).astype(np.float32)  # Ensure float32 type
+
     @staticmethod
     def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
         symmetric_obs = deepcopy(obs)
@@ -434,7 +459,6 @@ class CassieEnv(MujocoEnv):
     def step(
         self, action: "npt.NDArray[np.float32]"
     ) -> tuple["npt.NDArray[np.float32]", float, bool, bool, dict[str, Any]]:
-
         act = self.symmetric_action(action) if self.symmetric_turn else action
         self.do_simulation(act, self.frame_skip)
 
@@ -473,7 +497,9 @@ class CassieEnv(MujocoEnv):
         self._set_obs()
 
         self.update_symmetric_turn()
-        observation = self._get_symmetric_obs(self.obs) if self.symmetric_turn else self.obs
+        observation = (
+            self._get_symmetric_obs(self.obs) if self.symmetric_turn else self.obs
+        )
 
         self.steps += 1
         self.phi += 1.0 / self.steps_per_cycle
@@ -504,7 +530,9 @@ class CassieEnv(MujocoEnv):
         if "after_exponential" in metrics:
             for key in exp_keys_to_add:
                 if key in metrics["after_exponential"]:
-                    info["custom_metrics"][f"exp_{key}"] = metrics["after_exponential"][key]
+                    info["custom_metrics"][f"exp_{key}"] = metrics["after_exponential"][
+                        key
+                    ]
 
         info["other_metrics"] = metrics
 
@@ -606,11 +634,7 @@ class CassieEnv(MujocoEnv):
             raise RuntimeError("Observation was not set during reset.")
 
         self.update_symmetric_turn()
-        return (
-            self._get_symmetric_obs(self.obs)
-            if self.symmetric_turn
-            else self.obs
-        )
+        return self._get_symmetric_obs(self.obs) if self.symmetric_turn else self.obs
 
     def normalize_reward(
         self, rewards: Dict[str, float], reward_coeffs: Dict[str, float]
@@ -646,34 +670,6 @@ class CassieEnv(MujocoEnv):
 
         # Use the Numba-optimized function
         return self._normalize_reward(reward_values, coeffs_values)
-
-    def _set_obs(self):
-        """Constructs the observation vector from sensor data and internal state."""
-        # Calculate clock signal
-        clock_signal = np.array(
-            [np.sin((2 * np.pi * self.phi)), np.cos((2 * np.pi * self.phi))]
-        )
-
-        # Get sensor data
-        sensor_readings = self.sensor_data
-
-        # Assemble observation vector
-        self.obs = np.concatenate(
-            [
-                sensor_readings["actuatorpos"],  # 0-9
-                sensor_readings["jointpos"],  # 10-15
-                sensor_readings["framequat"],  # 16-19
-                sensor_readings["gyro"],  # 20-22
-                sensor_readings["accelerometer"],  # 23-25
-                sensor_readings["magnetometer"],  # 26-28
-                self.command,  # 29-30
-                self.contact_force_left_foot[:3],  # 31-33 (Use only first 3 components)
-                self.contact_force_right_foot[
-                    :3
-                ],  # 34-36 (Use only first 3 components)
-                clock_signal,  # 37-38
-            ]
-        ).astype(np.float32)  # Ensure float32 type
 
     def _get_obs(self):
         """Returns the current observation."""
