@@ -22,7 +22,7 @@ training:
       max_roll: 2.0
       max_pitch: 2.0
       max_yaw: 10.0
-      feet_height: 0.08
+      feet_height: 0.15
       model: cassie
       sim_fps: 100
       render_mode: rgb_array
