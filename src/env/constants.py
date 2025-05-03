@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 
 DEFAULT_CONFIG = {
-    "symmetric_regulation": "alternating",
+    "symmetric_regulation": "alternate",
     "dt_per_cycle": 1.0,
     "r": 0.6,
     "kappa": 25,

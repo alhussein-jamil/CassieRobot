@@ -58,6 +58,9 @@ class CassieEnv(MujocoEnv):
 
         # --- Configuration Parameters ---
         self.symmetric_regulation: str = config["symmetric_regulation"]
+        assert self.symmetric_regulation in ["alternate", "random", "none"], (
+            f"Invalid symmetric regulation {self.symmetric_regulation} must be one of ['alternate', 'random', 'none']"
+        )
         self._terminate_when_unhealthy: bool = config["terminate_when_unhealthy"]
         self._healthy_pelvis_z_range: Tuple[float, float] = config["pelvis_height"]
         self._healthy_feet_distance_x: float = config["feet_distance_x"]
@@ -369,12 +372,16 @@ class CassieEnv(MujocoEnv):
         }
 
     def update_symmetric_turn(self):
-        if self.symmetric_regulation == "alternating":
+        if self.symmetric_regulation == "alternate":
             self.symmetric_turn = not self.symmetric_turn
         elif self.symmetric_regulation == "random":
             self.symmetric_turn = np.random.rand() < 0.5
-        else:
+        elif self.symmetric_regulation == "none":
             self.symmetric_turn = False
+        else:
+            raise ValueError(
+                f"Invalid symmetric regulation {self.symmetric_regulation} must be one of ['alternate', 'random', 'none']"
+            )
 
     def _set_obs(self):
         """Constructs the observation vector from sensor data and internal state."""
@@ -605,8 +612,6 @@ class CassieEnv(MujocoEnv):
         self.steps = 0
 
         self.contact = False
-
-        self.symmetric_turn = bool(np.random.choice([True, False]))
         self.command = np.array([self.x_cmd_vel, self.y_cmd_vel], dtype=np.float32)
 
         self._pushing = -1

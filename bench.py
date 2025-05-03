@@ -25,8 +25,10 @@ class LiveCassieMonitor:
         # Initialize environment
         self.env = CassieEnv(
             env_config={
-                "symmetric_regulation": False,
+                "symmetric_regulation": "none",
                 "sim_fps": 40,  # Match interval in run() -> 1000/40 = 25 fps simulation rate
+                "push_prob": 0.01,
+                "push_duration": 0.1,
             }
         )
         self.max_data_points = max_data_points
@@ -122,6 +124,15 @@ class LiveCassieMonitor:
                 "r_biped": [],
                 "r_cmd": [],
                 "r_smooth": [],
+                "r_feet_parallel": [],
+                "c_frc_left": [],
+                "c_frc_right": [],
+                "c_spd_left": [],
+                "c_spd_right": [],
+                "exp_q_left_frc": [],
+                "exp_q_right_frc": [],
+                "exp_q_left_spd": [],
+                "exp_q_right_spd": [],
             }
         )
 
@@ -179,10 +190,10 @@ class LiveCassieMonitor:
         self.ax_motors_right.set_ylabel("Position (deg)")
         self.ax_motors_right.tick_params(axis="x", labelbottom=False)
 
-        self.ax_gyro = self.fig.add_subplot(self.gs[1, 2])  # New: Gyro
-        self.ax_gyro.set_title("Gyroscope")
-        self.ax_gyro.set_ylabel("Ang. Vel (rad/s)")
-        self.ax_gyro.tick_params(axis="x", labelbottom=False)
+        self.ax_exp_rewards = self.fig.add_subplot(self.gs[1, 2])  # New: Exp Rewards
+        self.ax_exp_rewards.set_title("Exp(Reward Components)")
+        self.ax_exp_rewards.set_ylabel("Value (Post-Exp)")
+        self.ax_exp_rewards.tick_params(axis="x", labelbottom=False)
 
         self.ax_forces = self.fig.add_subplot(self.gs[1, 3])
         self.ax_forces.set_title("Contact Forces (World Frame)")
@@ -195,10 +206,10 @@ class LiveCassieMonitor:
         self.ax_jointpos.set_ylabel("Position (deg)")
         self.ax_jointpos.set_xlabel("Timestep")
 
-        self.ax_accel = self.fig.add_subplot(self.gs[2, 2])  # New: Accelerometer
-        self.ax_accel.set_title("Accelerometer")
-        self.ax_accel.set_ylabel("Lin. Accel (m/s^2)")
-        self.ax_accel.set_xlabel("Timestep")
+        self.ax_coeffs = self.fig.add_subplot(self.gs[2, 2])  # New: Coefficients
+        self.ax_coeffs.set_title("Reward Coefficients")
+        self.ax_coeffs.set_ylabel("Coefficient Value")
+        self.ax_coeffs.set_xlabel("Timestep")
 
         self.ax_rewards = self.fig.add_subplot(
             self.gs[2, 3]
@@ -214,10 +225,10 @@ class LiveCassieMonitor:
             self.ax_imu,
             self.ax_heights,
             self.ax_motors_right,
-            self.ax_gyro,
+            self.ax_exp_rewards,
             self.ax_forces,
             self.ax_jointpos,
-            self.ax_accel,
+            self.ax_coeffs,  # Added coeffs axis
             self.ax_rewards,  # Added rewards axis
         ]
 
@@ -253,10 +264,23 @@ class LiveCassieMonitor:
             key_suffix=True,
         )
 
-        # Gyroscope (gs[1, 2], Palette: Dark2)
-        gyro_keys = [f"gyro_{name}" for name in self.obs_component_names["gyro"]]
+        # Replace Gyroscope plot with Exponential Reward Components plot
+        # self.ax_gyro = self.fig.add_subplot(self.gs[1, 2])
+        # self.ax_gyro.set_title("Gyroscope")
+        # self.ax_gyro.set_ylabel("Ang. Vel (rad/s)")
+        # self.ax_gyro.tick_params(axis="x", labelbottom=False)
+        exp_reward_keys = [
+            "exp_q_left_frc",
+            "exp_q_right_frc",
+            "exp_q_left_spd",
+            "exp_q_right_spd",
+        ]
+        exp_reward_labels = ["Exp_Frc_L", "Exp_Frc_R", "Exp_Spd_L", "Exp_Spd_R"]
         self._create_lines(
-            self.ax_gyro, gyro_keys, sns.color_palette("Dark2", 3), key_suffix=True
+            self.ax_exp_rewards,
+            exp_reward_keys,
+            sns.color_palette("Dark2", 4),
+            labels=exp_reward_labels,
         )
 
         # Contact Forces (gs[1, 3], Palette: tab10)
@@ -283,22 +307,29 @@ class LiveCassieMonitor:
             key_suffix=True,
         )
 
-        # Accelerometer (gs[2, 2], Palette: Set1)
-        accel_keys = [
-            f"accelerometer_{name}"
-            for name in self.obs_component_names["accelerometer"]
-        ]
+        # Replace Accelerometer lines with Coefficient lines
+        coeff_keys = ["c_frc_left", "c_frc_right", "c_spd_left", "c_spd_right"]
+        coeff_labels = ["Frc_L", "Frc_R", "Spd_L", "Spd_R"]
         self._create_lines(
-            self.ax_accel, accel_keys, sns.color_palette("Set1", 3), key_suffix=True
+            self.ax_coeffs,
+            coeff_keys,
+            sns.color_palette("Set1", 4),
+            labels=coeff_labels,
         )
 
         # Misc -> Rewards (gs[2, 3], Palette: Dark2)
-        reward_keys = ["total_reward", "r_biped", "r_cmd", "r_smooth"]
-        reward_labels = ["Total", "Biped", "Cmd", "Smooth"]
+        reward_keys = [
+            "total_reward",
+            "r_biped",
+            "r_cmd",
+            "r_smooth",
+            "r_feet_parallel",
+        ]
+        reward_labels = ["Total", "Biped", "Cmd", "Smooth", "Feet Parallel"]
         self._create_lines(
             self.ax_rewards,
             reward_keys,
-            sns.color_palette("Dark2", 4),
+            sns.color_palette("Dark2", 5),
             labels=reward_labels,
         )
 
@@ -412,17 +443,21 @@ class LiveCassieMonitor:
         self.data["pelvis_yaw"].append(pelvis_rpy[2])
 
         # Append reward data
-        # Ensure 'custom_rewards' exists and has the expected keys
-        if "custom_rewards" in info and all(
-            k in info["custom_rewards"] for k in ["r_biped", "r_cmd", "r_smooth"]
+        # Ensure 'custom_metrics' exists and has the expected keys
+        expected_rewards = ["r_biped", "r_cmd", "r_smooth", "r_feet_parallel"]
+        if "custom_metrics" in info and all(
+            k in info["custom_metrics"] for k in expected_rewards
         ):
             self.data["total_reward"].append(reward)
-            self.data["r_biped"].append(info["custom_rewards"]["r_biped"])
-            self.data["r_cmd"].append(info["custom_rewards"]["r_cmd"])
-            self.data["r_smooth"].append(info["custom_rewards"]["r_smooth"])
+            self.data["r_biped"].append(info["custom_metrics"]["r_biped"])
+            self.data["r_cmd"].append(info["custom_metrics"]["r_cmd"])
+            self.data["r_smooth"].append(info["custom_metrics"]["r_smooth"])
+            self.data["r_feet_parallel"].append(
+                info["custom_metrics"]["r_feet_parallel"]
+            )
         else:
             # Append default values (e.g., NaN or 0) if rewards are missing
-            log_msg = "Reward data missing or incomplete in info dict. Appending NaN."
+            log_msg = "Reward data missing or incomplete in info['custom_metrics']. Appending NaN."
             # Avoid printing too frequently if this happens often
             if self.timestep % 50 == 0:  # Log every 50 steps
                 print(log_msg)
@@ -430,6 +465,55 @@ class LiveCassieMonitor:
             self.data["r_biped"].append(np.nan)
             self.data["r_cmd"].append(np.nan)
             self.data["r_smooth"].append(np.nan)
+            self.data["r_feet_parallel"].append(np.nan)
+
+        # Extract and append coefficients
+        expected_coeffs = ["c_frc_left", "c_frc_right", "c_spd_left", "c_spd_right"]
+        if "custom_metrics" in info and all(
+            k in info["custom_metrics"] for k in expected_coeffs
+        ):
+            self.data["c_frc_left"].append(info["custom_metrics"]["c_frc_left"])
+            self.data["c_frc_right"].append(info["custom_metrics"]["c_frc_right"])
+            self.data["c_spd_left"].append(info["custom_metrics"]["c_spd_left"])
+            self.data["c_spd_right"].append(info["custom_metrics"]["c_spd_right"])
+        else:
+            # Append default values (e.g., NaN or 0) if coeffs are missing
+            log_msg_coeff = "Coefficient data missing or incomplete in info['custom_metrics']. Appending NaN."
+            # Avoid printing too frequently
+            if self.timestep % 50 == 0:
+                print(log_msg_coeff)
+            self.data["c_frc_left"].append(np.nan)
+            self.data["c_frc_right"].append(np.nan)
+            self.data["c_spd_left"].append(np.nan)
+            self.data["c_spd_right"].append(np.nan)
+
+        # Extract and append exponential reward components
+        expected_exp_rewards = [
+            "exp_q_left_frc",
+            "exp_q_right_frc",
+            "exp_q_left_spd",
+            "exp_q_right_spd",
+        ]
+        if "custom_metrics" in info and all(
+            k in info["custom_metrics"] for k in expected_exp_rewards
+        ):
+            self.data["exp_q_left_frc"].append(info["custom_metrics"]["exp_q_left_frc"])
+            self.data["exp_q_right_frc"].append(
+                info["custom_metrics"]["exp_q_right_frc"]
+            )
+            self.data["exp_q_left_spd"].append(info["custom_metrics"]["exp_q_left_spd"])
+            self.data["exp_q_right_spd"].append(
+                info["custom_metrics"]["exp_q_right_spd"]
+            )
+        else:
+            # Append default values if exp rewards are missing
+            log_msg_exp = "Exponential reward component data missing. Appending NaN."
+            if self.timestep % 50 == 0:
+                print(log_msg_exp)
+            self.data["exp_q_left_frc"].append(np.nan)
+            self.data["exp_q_right_frc"].append(np.nan)
+            self.data["exp_q_left_spd"].append(np.nan)
+            self.data["exp_q_right_spd"].append(np.nan)
 
         self.timestep += 1
 
@@ -500,4 +584,4 @@ class LiveCassieMonitor:
 if __name__ == "__main__":
     monitor = LiveCassieMonitor(max_data_points=300)  # Slightly more history
     # Run indefinitely until window is closed or max_steps reached in env
-    monitor.run(frames=50, interval=40)
+    monitor.run(frames=150, interval=40)

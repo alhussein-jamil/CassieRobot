@@ -5,7 +5,7 @@ training:
     normalize_actions: false
     env_config:
       # The constants are defined here
-      symmetric_regulation: random
+      symmetric_regulation: alternate
       dt_per_cycle: 0.5
       r : 0.6
       kappa: 20
@@ -14,25 +14,25 @@ training:
       z_cmd_vel: 0
       terminate_when_unhealthy: true
       max_simulation_time: 10 # seconds
-      pelvis_height: [0.4,1.5]
-      feet_distance_x: 1.0
-      feet_distance_y: 1.0
-      feet_distance_z: 1.0
-      feet_pelvis_height: 0.20
+      pelvis_height: [0.65,1.25]
+      feet_distance_x: 0.8
+      feet_distance_y: 0.6
+      feet_distance_z: 0.5
+      feet_pelvis_height: 0.25
       max_roll: 2.0
       max_pitch: 2.0
       max_yaw: 10.0
-      feet_height: 0.30
-      model: cassie
+      feet_height: 0.08
+      model: cassie_noise_terrain
       sim_fps: 100
       render_mode: rgb_array
       width: 1920
       height: 1080
       reset_noise_scale: 0.08
-      force_max_norm: 15.0
+      force_max_norm: 30.0
       push_prob: 0.01 #  1% of the time
       push_duration: 0.1 # seconds
-      bias: -0.1 # Make sure reward can be negative
+      bias: -0.2 # Make sure reward can be negative
       r_biped: 1.0
       r_feet_parallel: 0.1
       r_cmd : 1.0
