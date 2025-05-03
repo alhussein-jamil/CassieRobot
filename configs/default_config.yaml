@@ -106,7 +106,7 @@ training:
 
 run:
   render_fps: 30
-  render_every: 60 # seconds
+  render_every: 600 # seconds
   chkpt_freq: 2400 # seconds
   epochs: 50000000
   hyper_par_iter: 1
