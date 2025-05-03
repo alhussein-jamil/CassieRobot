@@ -283,7 +283,7 @@ class CassieEnv(MujocoEnv):
         if (self.contact and self.data.xpos[PELVIS, 2] > max_z) or self.data.xpos[
             PELVIS, 2
         ] < min_z:
-            self.isdone = "Pelvis not in range"
+            self.isdone = f"Pelvis not in range: {self.data.xpos[PELVIS, 2]}"
             self.done_n = 1.0
 
         if self.total_simulation_time > self._max_sim_time:
@@ -294,7 +294,7 @@ class CassieEnv(MujocoEnv):
             not abs(self.data.xpos[LEFT_FOOT, 0] - self.data.xpos[RIGHT_FOOT, 0])
             < self._healthy_feet_distance_x
         ):
-            self.isdone = "Feet distance out of range along x-axis"
+            self.isdone = f"Feet distance out of range along x-axis: {self.data.xpos[LEFT_FOOT, 0] - self.data.xpos[RIGHT_FOOT, 0]}"
             self.done_n = 3.0
 
         if (
@@ -302,13 +302,14 @@ class CassieEnv(MujocoEnv):
             < self.data.xpos[RIGHT_FOOT, 1] - self.data.xpos[LEFT_FOOT, 1]
             < self._healthy_feet_distance_y
         ):
-            self.isdone = "Feet distance out of range along y-axis"
+            self.isdone = f"Feet distance out of range along y-axis: {self.data.xpos[RIGHT_FOOT, 1] - self.data.xpos[LEFT_FOOT, 1]}"
+            self.done_n = 4.0
 
         if (
             not abs(self.data.xpos[LEFT_FOOT, 2] - self.data.xpos[RIGHT_FOOT, 2])
             < self._healthy_feet_distance_z
         ):
-            self.isdone = "Feet distance out of range along z-axis"
+            self.isdone = f"Feet distance out of range along z-axis: {self.data.xpos[LEFT_FOOT, 2] - self.data.xpos[RIGHT_FOOT, 2]}"
             self.done_n = 4.0
 
         if (
@@ -325,26 +326,26 @@ class CassieEnv(MujocoEnv):
             not self._healthy_dis_to_pelvis
             < self.data.xpos[PELVIS, 2] - self.data.xpos[LEFT_FOOT, 2]
         ):
-            self.isdone = "Left foot too close to pelvis"
+            self.isdone = f"Left foot too close to pelvis: {self.data.xpos[PELVIS, 2] - self.data.xpos[LEFT_FOOT, 2]}"
             self.done_n = 6.0
 
         if (
             not self._healthy_dis_to_pelvis
             < self.data.xpos[PELVIS, 2] - self.data.xpos[RIGHT_FOOT, 2]
         ):
-            self.isdone = "Right foot too close to pelvis"
+            self.isdone = f"Right foot too close to pelvis: {self.data.xpos[PELVIS, 2] - self.data.xpos[RIGHT_FOOT, 2]}"
             self.done_n = 7.0
 
         pelvis_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
         rpy_diff = np.abs(mod(pelvis_rpy - self.init_rpy, np.pi))
         if rpy_diff[0] > self.max_roll:
-            self.isdone = "Roll too high"
+            self.isdone = f"Roll too high: {rpy_diff[0]}"
             self.done_n = 8.0
         if rpy_diff[1] > self.max_pitch:
-            self.isdone = "Pitch too high"
+            self.isdone = f"Pitch too high: {rpy_diff[1]}"
             self.done_n = 9.0
         if rpy_diff[2] > self.max_yaw:
-            self.isdone = "Yaw too high"
+            self.isdone = f"Yaw too high: {rpy_diff[2]} "
             self.done_n = 10.0
 
         return self.isdone == "not done"

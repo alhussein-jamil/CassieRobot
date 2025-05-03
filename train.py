@@ -1,5 +1,6 @@
 import argparse
 import logging
+import multiprocessing
 import os
 import time
 from dataclasses import dataclass
@@ -80,6 +81,14 @@ class TrainingManager:
         # Load configuration
         self.loader = Loader(logdir=self.log_dir, simdir=self.sim_dir)
         self.full_config = self.loader.load_config(config.config_path)
+
+        # set the number of env runners to the number of GPUs
+        self.full_config["training"]["env_runners"]["num_env_runners"] = (
+            multiprocessing.cpu_count()
+        )
+        self.full_config["training"]["env_runners"]["num_gpus_per_env_runner"] = (
+            1.0 / multiprocessing.cpu_count()
+        )
 
     def find_latest_test_dir(self) -> None:
         """Find the latest test directory to continue from."""
