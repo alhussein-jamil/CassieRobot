@@ -50,7 +50,7 @@ c_swing_spd = 0
 c_stance_spd = +1
 
 
-OMEGA = 2.0
+OMEGA = 4.5
 
 
 # Data indices

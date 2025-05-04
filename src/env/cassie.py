@@ -314,10 +314,7 @@ class CassieEnv(MujocoEnv):
 
         if (
             self.contact
-            and self.data.xpos[LEFT_FOOT, 2] >= self._healthy_feet_height
-            and self.data.xpos[RIGHT_FOOT, 2] >= self._healthy_feet_height
-            and np.linalg.norm(self.contact_force_left_foot) < 0.01
-            and np.linalg.norm(self.contact_force_right_foot) < 0.01
+            and not self.foot_contact
         ):
             self.isdone = "Both Feet not on the ground"
             self.done_n = 5.0
@@ -362,6 +359,14 @@ class CassieEnv(MujocoEnv):
     @property
     def truncated(self):
         return self.total_simulation_time > self._max_sim_time
+
+
+    @property
+    def foot_contact(self):
+        return (self.data.xpos[LEFT_FOOT, 2] < self._healthy_feet_height
+                or self.data.xpos[RIGHT_FOOT, 2] < self._healthy_feet_height
+                or (np.linalg.norm(self.contact_force_left_foot) > 100
+                or np.linalg.norm(self.contact_force_right_foot) > 100))
 
     @property
     def sensor_data(self) -> dict[str, np.ndarray]:
@@ -491,12 +496,7 @@ class CassieEnv(MujocoEnv):
             )
 
         # check if cassie hit the ground with feet
-        if (
-            self.data.xpos[LEFT_FOOT, 2] < 0.12
-            or self.data.xpos[RIGHT_FOOT, 2] < 0.12
-            or np.linalg.norm(self.contact_force_left_foot) > 100
-            or np.linalg.norm(self.contact_force_right_foot) > 100
-        ):
+        if self.foot_contact:
             self.contact = True
 
         terminated = self.terminated
