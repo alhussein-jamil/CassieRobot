@@ -58,9 +58,11 @@ class CassieEnv(MujocoEnv):
 
         # --- Configuration Parameters ---
         self.symmetric_regulation: str = config["symmetric_regulation"]
-        assert self.symmetric_regulation in ["alternate", "random", "none"], (
-            f"Invalid symmetric regulation {self.symmetric_regulation} must be one of ['alternate', 'random', 'none']"
-        )
+        assert self.symmetric_regulation in [
+            "alternate",
+            "random",
+            "none",
+        ], f"Invalid symmetric regulation {self.symmetric_regulation} must be one of ['alternate', 'random', 'none']"
         self._terminate_when_unhealthy: bool = config["terminate_when_unhealthy"]
         self._healthy_pelvis_z_range: Tuple[float, float] = config["pelvis_height"]
         self._healthy_feet_distance_x: float = config["feet_distance_x"]
@@ -188,6 +190,13 @@ class CassieEnv(MujocoEnv):
         # --- Post-Initialization Calculations ---
         self.steps_per_cycle = int(self.dt_per_cycle / self.dt)
 
+        # Ensure steps_per_cycle is at least 1 to prevent division by zero
+        if self.steps_per_cycle <= 0:
+            log.warning(
+                f"steps_per_cycle calculated as {self.steps_per_cycle}, setting to 1"
+            )
+            self.steps_per_cycle = 1
+
         self._push_duration: int = int(config["push_duration"] / self.dt)
 
         # Precompute Von Mises values for efficiency
@@ -310,40 +319,37 @@ class CassieEnv(MujocoEnv):
             < self._healthy_feet_distance_z
         ):
             self.isdone = f"Feet distance out of range along z-axis: {self.data.xpos[LEFT_FOOT, 2] - self.data.xpos[RIGHT_FOOT, 2]}"
-            self.done_n = 4.0
-
-        if (
-            self.contact
-            and not self.foot_contact
-        ):
-            self.isdone = "Both Feet not on the ground"
             self.done_n = 5.0
+
+        if self.contact and not self.foot_contact:
+            self.isdone = "Both Feet not on the ground"
+            self.done_n = 6.0
 
         if (
             not self._healthy_dis_to_pelvis
             < self.data.xpos[PELVIS, 2] - self.data.xpos[LEFT_FOOT, 2]
         ):
             self.isdone = f"Left foot too close to pelvis: {self.data.xpos[PELVIS, 2] - self.data.xpos[LEFT_FOOT, 2]}"
-            self.done_n = 6.0
+            self.done_n = 7.0
 
         if (
             not self._healthy_dis_to_pelvis
             < self.data.xpos[PELVIS, 2] - self.data.xpos[RIGHT_FOOT, 2]
         ):
             self.isdone = f"Right foot too close to pelvis: {self.data.xpos[PELVIS, 2] - self.data.xpos[RIGHT_FOOT, 2]}"
-            self.done_n = 7.0
+            self.done_n = 8.0
 
         pelvis_rpy = self.quat_to_rpy(self.data.sensordata[16:20])
         rpy_diff = np.abs(mod(pelvis_rpy - self.init_rpy, np.pi))
         if rpy_diff[0] > self.max_roll:
             self.isdone = f"Roll too high: {rpy_diff[0]}"
-            self.done_n = 8.0
+            self.done_n = 9.0
         if rpy_diff[1] > self.max_pitch:
             self.isdone = f"Pitch too high: {rpy_diff[1]}"
-            self.done_n = 9.0
+            self.done_n = 10.0
         if rpy_diff[2] > self.max_yaw:
             self.isdone = f"Yaw too high: {rpy_diff[2]} "
-            self.done_n = 10.0
+            self.done_n = 11.0
 
         return self.isdone == "not done"
 
@@ -360,13 +366,14 @@ class CassieEnv(MujocoEnv):
     def truncated(self):
         return self.total_simulation_time > self._max_sim_time
 
-
     @property
     def foot_contact(self):
-        return (self.data.xpos[LEFT_FOOT, 2] < self._healthy_feet_height
-                or self.data.xpos[RIGHT_FOOT, 2] < self._healthy_feet_height
-                or (np.linalg.norm(self.contact_force_left_foot) > 100
-                or np.linalg.norm(self.contact_force_right_foot) > 100))
+        return (
+            self.data.xpos[LEFT_FOOT, 2] < self._healthy_feet_height
+            or self.data.xpos[RIGHT_FOOT, 2] < self._healthy_feet_height
+            or np.linalg.norm(self.contact_force_left_foot) > 100
+            or np.linalg.norm(self.contact_force_right_foot) > 100
+        )
 
     @property
     def sensor_data(self) -> dict[str, np.ndarray]:
@@ -414,7 +421,9 @@ class CassieEnv(MujocoEnv):
                 ],  # 34-36 (Use only first 3 components)
                 clock_signal,  # 37-38
             ]
-        ).astype(np.float32)  # Ensure float32 type
+        ).astype(
+            np.float32
+        )  # Ensure float32 type
 
     @staticmethod
     def _get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
@@ -693,15 +702,13 @@ class CassieEnv(MujocoEnv):
         Applies exponential moving average to update normalization range
         and returns the normalized quantity.
         """
-        k = 2.0  # Smoothing factor for EMA
+        k = 5.0  # Smoothing factor for EMA
         current_min, current_max = self.exponents_ranges[name]
 
-        # Update range using EMA
-        new_min = ((k - 1) * current_min + max(q, current_min)) / k
+        # Update range using EMA - FIXED LOGIC
+        new_min = ((k - 1) * current_min + min(q, current_min)) / k
+        new_max = ((k - 1) * current_max + max(q, current_max)) / k
 
-        new_min = current_min
-        new_max = ((k - 1) * current_max + min(q, current_max)) / k
-        new_max = current_max
         # Ensure min <= max
         new_min = min(new_min, new_max)
         new_max = max(new_min, new_max) + 1e-6
@@ -776,12 +783,16 @@ class CassieEnv(MujocoEnv):
             "q_pelvis_acc": np.linalg.norm(pelvis_ang_vel),
             "q_torque": np.linalg.norm(action),
             "q_orientation": np.linalg.norm(pelvis_quat - FORWARD_QUARTERNIONS),
-            "q_left_foot_pitch": abs(left_foot_rpy[1])
-            if np.linalg.norm(self.contact_force_left_foot) > 0.01
-            else 0.0,
-            "q_right_foot_pitch": abs(right_foot_rpy[1])
-            if np.linalg.norm(self.contact_force_right_foot) > 0.01
-            else 0.0,
+            "q_left_foot_pitch": (
+                abs(left_foot_rpy[1])
+                if np.linalg.norm(self.contact_force_left_foot) > 0.01
+                else 0.0
+            ),
+            "q_right_foot_pitch": (
+                abs(right_foot_rpy[1])
+                if np.linalg.norm(self.contact_force_right_foot) > 0.01
+                else 0.0
+            ),
         }
 
         normalized_quantities = {

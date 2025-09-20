@@ -83,9 +83,9 @@ class TrainingManager:
         self.full_config = self.loader.load_config(config.config_path)
 
         # set the number of env runners to the number of GPUs
-        self.full_config["training"]["env_runners"]["num_env_runners"] = (
-            multiprocessing.cpu_count()
-        )
+        self.full_config["training"]["env_runners"][
+            "num_env_runners"
+        ] = multiprocessing.cpu_count()
         self.full_config["training"]["env_runners"]["num_gpus_per_env_runner"] = (
             1.0 / multiprocessing.cpu_count()
         )
