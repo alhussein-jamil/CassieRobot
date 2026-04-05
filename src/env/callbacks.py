@@ -1,56 +1,30 @@
 import numpy as np
-from ray.rllib.env.single_agent_episode import SingleAgentEpisode
-from ray.rllib.callbacks.callbacks import RLlibCallback
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
 
 
-class CassieEnvCallback(RLlibCallback):
-    def on_episode_step(self, *, episode: SingleAgentEpisode, env, **kwargs):
+class CassieEnvCallback(DefaultCallbacks):
+    def on_episode_step(self, *, worker, base_env, episode, env_index, **kwargs):
         """Store reward components at each step in the episode."""
-        # Get the info dict from the last step
-        if len(episode.infos) > 0:
-            info = episode.infos[-1]
+        info = episode.last_info_for()
+        if info and "custom_metrics" in info:
+            for key, value in info["custom_metrics"].items():
+                if key.startswith("r_"):
+                    if key not in episode.user_data:
+                        episode.user_data[key] = []
+                    episode.user_data[key].append(value)
 
-            # Store reward components from custom_metrics if available
-            if "custom_metrics" in info:
-                # Automatically detect any reward component (keys starting with 'r_')
-                for key, value in info["custom_metrics"].items():
-                    if key.startswith("r_"):
-                        episode.add_temporary_timestep_data(key, value)
-
-    def on_episode_end(self, *, episode: SingleAgentEpisode, metrics_logger, **kwargs):
+    def on_episode_end(
+        self, *, worker, base_env, policies, episode, env_index, **kwargs
+    ):
         """Log aggregated reward components at the end of episode."""
-        # Get all reward component keys from temporary data
-        all_keys = set()
-        for i in range(len(episode)):
-            if len(episode.infos) > i:
-                info = episode.infos[i]
-                if "custom_metrics" in info:
-                    # Add any reward component key
-                    all_keys.update(
-                        key for key in info["custom_metrics"] if key.startswith("r_")
-                    )
+        for key, values in episode.user_data.items():
+            if key.startswith("r_") and values:
+                episode.custom_metrics[f"{key}_mean"] = np.mean(values)
+                episode.custom_metrics[f"{key}_min"] = np.min(values)
+                episode.custom_metrics[f"{key}_max"] = np.max(values)
 
-        # Log each discovered reward component
-        for component in all_keys:
-            values = episode.get_temporary_timestep_data(component)
-            if values:
-                # Log mean, min, max for each component
-                metrics_logger.log_value(
-                    f"{component}_mean", np.mean(values), reduce="mean", window=50
-                )
-                metrics_logger.log_value(
-                    f"{component}_min", np.min(values), reduce="min", window=50
-                )
-                metrics_logger.log_value(
-                    f"{component}_max", np.max(values), reduce="max", window=50
-                )
-
-        # Log essential environment metrics
-        if len(episode.infos) > 0 and "custom_metrics" in episode.infos[-1]:
-            custom_metrics = episode.infos[-1]["custom_metrics"]
-            for metric_name, metric_value in custom_metrics.items():
-                # Only log non-reward metrics (distance, height)
+        info = episode.last_info_for()
+        if info and "custom_metrics" in info:
+            for metric_name, metric_value in info["custom_metrics"].items():
                 if not metric_name.startswith("r_"):
-                    metrics_logger.log_value(
-                        f"env_{metric_name}", metric_value, reduce="mean", window=50
-                    )
+                    episode.custom_metrics[f"env_{metric_name}"] = metric_value
