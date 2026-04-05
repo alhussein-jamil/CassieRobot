@@ -42,6 +42,12 @@ def get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32
     symmetric_obs[0:5] = obs[5:10]
     symmetric_obs[5:10] = obs[0:5]
 
+    # Negate hip-roll and hip-yaw (sagittal-plane reflection)
+    symmetric_obs[0] = -symmetric_obs[0]  # right-hip-roll -> mirrored left-hip-roll
+    symmetric_obs[1] = -symmetric_obs[1]  # right-hip-yaw  -> mirrored left-hip-yaw
+    symmetric_obs[5] = -symmetric_obs[5]  # left-hip-roll  -> mirrored right-hip-roll
+    symmetric_obs[6] = -symmetric_obs[6]  # left-hip-yaw   -> mirrored right-hip-yaw
+
     # jointpos - swap left and right joints
     symmetric_obs[10:13] = obs[13:16]
     symmetric_obs[13:16] = obs[10:13]
@@ -63,9 +69,16 @@ def get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32
     # command - y velocity flips sign when mirroring
     symmetric_obs[30] = -obs[30]  # y command
 
-    # contact forces - swap left and right foot forces
-    symmetric_obs[31:34] = obs[34:37]
-    symmetric_obs[34:37] = obs[31:34]
+    # contact forces - swap left and right foot forces, and negate the Y-axis tangent force
+    left_force = obs[34:37].copy()
+    right_force = obs[31:34].copy()
+
+    # The normal force is at index 0, tangent 1 (Y-axis) is at index 1, tangent 2 (X-axis) is at index 2
+    left_force[1] = -left_force[1]
+    right_force[1] = -right_force[1]
+
+    symmetric_obs[31:34] = left_force
+    symmetric_obs[34:37] = right_force
 
     # clock signal - phase shift of half cycle for symmetric gait
     symmetric_obs[37] = -obs[37]  # sin component
@@ -76,4 +89,10 @@ def get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32
 
 def symmetric_action(action: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
     """Swap left/right actuator commands for symmetric gait."""
-    return np.array([*action[5:], *action[:5]])
+    mirrored = np.array([*action[5:], *action[:5]])
+    # Negate hip-roll and hip-yaw (sagittal-plane reflection)
+    mirrored[0] = -mirrored[0]  # hip-roll
+    mirrored[1] = -mirrored[1]  # hip-yaw
+    mirrored[5] = -mirrored[5]  # hip-roll
+    mirrored[6] = -mirrored[6]  # hip-yaw
+    return mirrored
