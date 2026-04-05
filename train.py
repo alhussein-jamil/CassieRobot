@@ -1,9 +1,5 @@
 import argparse
 import logging
-import os
-
-# Force MuJoCo to use EGL offscreen rendering (must be set before mujoco is imported)
-os.environ.setdefault("MUJOCO_GL", "egl")
 
 import torch
 from loguru import logger
