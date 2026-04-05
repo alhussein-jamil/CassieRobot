@@ -41,14 +41,19 @@ class RewardCalculator:
         self.von_mises_values_swing = von_mises_values_swing
         self.von_mises_values_stance = von_mises_values_stance
 
-        # Adaptive normalization ranges for reward components
+        # Fixed normalization ranges for reward components
+        # Force: body weight (gravity * mass) gives a smooth gradient from
+        #   no-contact (exp=1) through light contact (~0.5) to full stance (~0).
+        # Speed: use actuator speed limits rather than command velocity so
+        #   joint velocities don't saturate the range.
+        max_joint_spd = 12.2  # rad/s, from actuator speed limits (knee)
         self.exponents_ranges = {
-            "q_vx": (0.0, x_cmd_vel),
-            "q_vy": (0.0, y_cmd_vel),
-            "q_left_frc": (0.0, gravity * mass / 15.0),
-            "q_right_frc": (0.0, gravity * mass / 15.0),
-            "q_left_spd": (0.0, np.sqrt(x_cmd_vel**2 + y_cmd_vel**2)),
-            "q_right_spd": (0.0, np.sqrt(x_cmd_vel**2 + y_cmd_vel**2)),
+            "q_vx": (0.0, max(x_cmd_vel, 0.5)),
+            "q_vy": (0.0, max(y_cmd_vel, 0.5)),
+            "q_left_frc": (0.0, gravity * mass),
+            "q_right_frc": (0.0, gravity * mass),
+            "q_left_spd": (0.0, max_joint_spd),
+            "q_right_spd": (0.0, max_joint_spd),
             "q_action": (0.0, 1.0),
             "q_pelvis_acc": (0.0, 10.0),
             "q_orientation": (0.0, 2 * np.sqrt(2)),
@@ -58,25 +63,10 @@ class RewardCalculator:
         }
 
     def _normalize_quantity(self, name: str, q: float) -> float:
-        """Applies exponential moving average to update normalization range
-        and returns the normalized quantity."""
-        k = 5.0
-        current_min, current_max = self.exponents_ranges[name]
-
-        new_min = ((k - 1) * current_min + min(q, current_min)) / k
-        new_max = ((k - 1) * current_max + max(q, current_max)) / k
-
-        new_min = min(new_min, new_max)
-        new_max = max(new_min, new_max) + 1e-6
-
-        self.exponents_ranges[name] = (new_min, new_max)
-
-        range_size = new_max - new_min
-        if range_size < 1e-6:
-            return 0.5
-        else:
-            normalized_q = (q - new_min) / range_size
-            return np.clip(normalized_q, 0.0, 1.0)
+        """Normalizes a quantity using fixed ranges."""
+        lo, hi = self.exponents_ranges[name]
+        rng = hi - lo + 1e-6
+        return np.clip((q - lo) / rng, 0.0, 1.0)
 
     @staticmethod
     @nb.jit(nopython=True, cache=True)
