@@ -18,7 +18,7 @@ training:
       feet_distance_x: 0.8
       feet_distance_y: 0.6
       feet_distance_z: 0.5
-      feet_pelvis_height: 0.25
+      feet_pelvis_height: 0.15
       max_roll: 2.0
       max_pitch: 2.0
       max_yaw: 10.0
@@ -32,8 +32,8 @@ training:
       force_max_norm: 30.0
       push_prob: 0.01 #  1% of the time
       push_duration: 0.1 # seconds
-      bias: -0.2 # Make sure reward can be negative
-      r_biped: 1.0
+      r_bias: 0.0 # Make sure reward can be negative
+      r_biped: 0.5
       r_feet_parallel: 0.1
       r_cmd : 1.0
       r_smooth: 0.05
@@ -91,7 +91,7 @@ training:
     shuffle_batch_per_epoch: true # Renamed from shuffle_sequences
     vf_loss_coeff: 0.5
     entropy_coeff: 0.003
-    clip_param: 0.3
+    clip_param: 0.2
     vf_clip_param: 10.0
 
   framework:
