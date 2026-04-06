@@ -209,7 +209,7 @@ class RewardCalculator:
         }
 
         total_reward = self.normalize_reward(rewards, self.reward_coeffs)
-        total_reward += self.reward_coeffs.get("bias", -0.01)
+        total_reward += self.reward_coeffs.get("r_bias", 0.0)
 
         coeff = {
             "c_frc_left": c_frc(phi + THETA_LEFT),

@@ -7,7 +7,7 @@ DEFAULT_CONFIG = {
     "dt_per_cycle": 1.0,
     "r": 0.6,
     "kappa": 25,
-    "x_cmd_vel": 1.5,
+    "x_cmd_vel": 0.5,
     "y_cmd_vel": 0,
     "terminate_when_unhealthy": True,
     "max_simulation_time": 1.5,
@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "force_max_norm": 0.0,
     "push_prob": 0,
     "push_duration": 0,
-    "bias": -0.01,
+    "r_bias": -0.01,
     "r_biped": 0.0,
     "r_cmd": 1.0,
     "r_smooth": 0.0,
@@ -50,7 +50,7 @@ c_swing_spd = 0
 c_stance_spd = +1
 
 
-OMEGA = 4.5
+OMEGA = 3.0
 
 
 # Data indices

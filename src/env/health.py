@@ -41,8 +41,7 @@ def check_health(
     if (contact and data.xpos[PELVIS, 2] > max_z) or data.xpos[PELVIS, 2] < min_z:
         return False, f"Pelvis not in range: {data.xpos[PELVIS, 2]}", 1.0
 
-    if total_sim_time > max_sim_time:
-        return False, "Max steps reached", 2.0
+    # max_sim_time is handled by truncation, not termination
 
     dx = abs(data.xpos[LEFT_FOOT, 0] - data.xpos[RIGHT_FOOT, 0])
     if not dx < feet_distance_x:
@@ -56,8 +55,7 @@ def check_health(
     if not dz < feet_distance_z:
         return False, f"Feet distance out of range along z-axis: {dz}", 5.0
 
-    if contact and not foot_in_contact:
-        return False, "Both Feet not on the ground", 6.0
+    # Allow flight phases during walking — don't terminate when both feet are airborne
 
     left_pelvis_dist = data.xpos[PELVIS, 2] - data.xpos[LEFT_FOOT, 2]
     if not dis_to_pelvis < left_pelvis_dist:
