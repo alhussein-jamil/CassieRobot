@@ -246,7 +246,6 @@ class CassieEnv(MujocoEnv):
             feet_distance_y=self._healthy_feet_distance_y,
             feet_distance_z=self._healthy_feet_distance_z,
             dis_to_pelvis=self._healthy_dis_to_pelvis,
-            feet_height=self._healthy_feet_height,
             max_roll=self.max_roll,
             max_pitch=self.max_pitch,
             max_yaw=self.max_yaw,

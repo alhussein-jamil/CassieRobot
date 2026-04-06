@@ -20,7 +20,6 @@ def check_health(
     feet_distance_y: float,
     feet_distance_z: float,
     dis_to_pelvis: float,
-    feet_height: float,
     max_roll: float,
     max_pitch: float,
     max_yaw: float,
