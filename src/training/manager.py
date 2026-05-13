@@ -53,9 +53,10 @@ class TrainingManager:
         self.full_config["training"]["env_runners"]["num_env_runners"] = (
             multiprocessing.cpu_count()
         )
-        self.full_config["training"]["env_runners"]["num_gpus_per_env_runner"] = (
-            1.0 / multiprocessing.cpu_count()
-        )
+        # Rollout workers do CPU-only inference well; allocating a fractional
+        # GPU per worker forces every one to initialize CUDA, which is pure
+        # overhead and contends for VRAM with the learner.
+        self.full_config["training"]["env_runners"]["num_gpus_per_env_runner"] = 0
 
         # Initialize evaluator
         self.evaluator = Evaluator(self.full_config.get("run", {}))

@@ -1,8 +1,8 @@
 training:
   environment:
     env: cassie-v0
-    clip_actions: false
-    normalize_actions: false
+    clip_actions: true
+    normalize_actions: true
     env_config:
       # The constants are defined here
       symmetric_regulation: alternate
@@ -42,7 +42,7 @@ training:
   env_runners:
     enable_tf1_exec_eagerly: true
     num_env_runners: ???
-    num_envs_per_env_runner: 1
+    num_envs_per_env_runner: 4
     num_cpus_per_env_runner: 1.0
     num_gpus_per_env_runner: ???
     rollout_fragment_length: auto

@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import deepcopy  # noqa: F401  (kept for backward-compat re-export)
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -36,7 +36,7 @@ def build_observation(
 
 def get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32]":
     """Returns the symmetric (mirrored) observation for alternating gait."""
-    symmetric_obs = deepcopy(obs)
+    symmetric_obs = obs.copy()
 
     # actuatorpos - swap left and right actuators
     symmetric_obs[0:5] = obs[5:10]

@@ -93,9 +93,15 @@ class CassieEnv(MujocoEnv):
         self.contact: bool = False
         self.symmetric_turn: bool = False
         self.init_rpy: npt.NDArray[np.float32] | None = None
-        self.contact_force_left_foot: npt.NDArray[np.float32] = np.zeros(6)
-        self.contact_force_right_foot: npt.NDArray[np.float32] = np.zeros(6)
+        self.contact_force_left_foot: npt.NDArray[np.float64] = np.zeros(6, dtype=np.float64)
+        self.contact_force_right_foot: npt.NDArray[np.float64] = np.zeros(6, dtype=np.float64)
         self.obs: npt.NDArray[np.float32] | None = None
+
+        # Cached sensor readings (refreshed once per physics step). Avoids
+        # repeated string lookups into the model when the same data is
+        # consumed by reward, health, and observation builders.
+        self._sensor_cache: dict[str, np.ndarray] | None = None
+        self._sensor_name_lookup: dict[str, list] | None = None
 
         # Used by health checks (set after check_health call)
         self.done_n: float = 0.0
@@ -220,11 +226,25 @@ class CassieEnv(MujocoEnv):
 
     @property
     def sensor_data(self) -> dict[str, np.ndarray]:
-        return {
-            group: np.array(
-                [self.data.sensor(s).data for s in sensors[group]]
-            ).flatten()
-            for group in sensors.keys()
+        if self._sensor_cache is None:
+            self._refresh_sensor_cache()
+        return self._sensor_cache
+
+    def _refresh_sensor_cache(self) -> None:
+        """Recompute the per-step sensor dictionary.
+
+        Resolves sensor name -> sensor object lookups exactly once and
+        thereafter reuses the cached objects, avoiding the expensive
+        string-keyed lookup into the MuJoCo model on every step.
+        """
+        if self._sensor_name_lookup is None:
+            self._sensor_name_lookup = {
+                group: [self.data.sensor(s) for s in sensors[group]]
+                for group in sensors.keys()
+            }
+        self._sensor_cache = {
+            group: np.concatenate([s.data for s in sensor_objs])
+            for group, sensor_objs in self._sensor_name_lookup.items()
         }
 
     @property
@@ -317,6 +337,9 @@ class CassieEnv(MujocoEnv):
         act = self.symmetric_action(action) if self.symmetric_turn else action
         self.do_simulation(act, self.frame_skip)
 
+        # Refresh sensor cache once per step; reused by reward + obs below.
+        self._refresh_sensor_cache()
+
         # Feet contact forces
         self._update_contact_forces()
 
@@ -325,16 +348,17 @@ class CassieEnv(MujocoEnv):
 
         terminated = self.terminated
 
+        sensors_now = self._sensor_cache
         # Compute reward via the dedicated calculator
         reward, metrics = self._reward_calc.compute(
             action=act,
             previous_action=self.previous_action,
-            qvel=self.data.qvel.copy(),
+            qvel=self.data.qvel,
             command=self.command,
-            pelvis_quat=self.sensor_data["framequat"],
-            pelvis_ang_vel=self.sensor_data["gyro"],
-            left_foot_rpy=self.quat_to_rpy(self.data.xquat[LEFT_FOOT]),
-            right_foot_rpy=self.quat_to_rpy(self.data.xquat[RIGHT_FOOT]),
+            pelvis_quat=sensors_now["framequat"],
+            pelvis_ang_vel=sensors_now["gyro"],
+            left_foot_rpy=self.quat_to_rpy(np.ascontiguousarray(self.data.xquat[LEFT_FOOT])),
+            right_foot_rpy=self.quat_to_rpy(np.ascontiguousarray(self.data.xquat[RIGHT_FOOT])),
             contact_force_left=self.contact_force_left_foot,
             contact_force_right=self.contact_force_right_foot,
             phi=self.phi,
@@ -370,8 +394,8 @@ class CassieEnv(MujocoEnv):
         noise_high = self._reset_noise_scale
 
         self.previous_action = np.zeros(10, dtype=np.float32)
-        self.contact_force_left_foot = np.zeros(6, dtype=np.float32)
-        self.contact_force_right_foot = np.zeros(6, dtype=np.float32)
+        self.contact_force_left_foot = np.zeros(6, dtype=np.float64)
+        self.contact_force_right_foot = np.zeros(6, dtype=np.float64)
         self.phi = 0.0
         self.steps = 0
         self.contact = False
@@ -387,8 +411,9 @@ class CassieEnv(MujocoEnv):
 
         self.set_state(qpos, qvel)
         self.data.xfrc_applied[PELVIS] = np.zeros(6)
-        m.mj_forward(self.model, self.data)
+        # set_state already calls mj_forward; no need to call it again.
 
+        self._refresh_sensor_cache()
         self.init_rpy = self.quat_to_rpy(self.sensor_data["framequat"])
         self._set_obs()
 
@@ -429,22 +454,33 @@ class CassieEnv(MujocoEnv):
     # ------------------------------------------------------------------
 
     def _update_contact_forces(self):
-        contacts = [contact.geom2 for contact in self.data.contact]
-        self.contact_force_left_foot = np.zeros(6)
-        self.contact_force_right_foot = np.zeros(6)
+        # Reuse pre-allocated buffers; mj_contactForce writes into result in-place.
+        self.contact_force_left_foot.fill(0.0)
+        self.contact_force_right_foot.fill(0.0)
 
-        if LEFT_CONTACT_IDX in contacts:
+        ncon = self.data.ncon
+        if ncon == 0:
+            return
+
+        # Vectorized access: data.contact is a struct array; .geom2 returns a
+        # numpy view of length ncon (no Python list construction).
+        geom2 = self.data.contact.geom2[:ncon]
+
+        left_idx = np.where(geom2 == LEFT_CONTACT_IDX)[0]
+        if left_idx.size:
             m.mj_contactForce(
                 self.model,
                 self.data,
-                contacts.index(LEFT_CONTACT_IDX),
+                int(left_idx[0]),
                 self.contact_force_left_foot,
             )
-        if RIGHT_CONTACT_IDX in contacts:
+
+        right_idx = np.where(geom2 == RIGHT_CONTACT_IDX)[0]
+        if right_idx.size:
             m.mj_contactForce(
                 self.model,
                 self.data,
-                contacts.index(RIGHT_CONTACT_IDX),
+                int(right_idx[0]),
                 self.contact_force_right_foot,
             )
 
@@ -470,7 +506,10 @@ class CassieEnv(MujocoEnv):
                         key
                     ]
 
-        info["other_metrics"] = metrics
+        # NOTE: previously stored the full ``metrics`` dict here, but it was
+        # serialized through Ray on every step from every worker -- a major
+        # throughput killer. The reward components above already cover what
+        # the callbacks need.
         return info
 
     def _apply_push(self):
