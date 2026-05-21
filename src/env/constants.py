@@ -95,7 +95,6 @@ exponential_bornes = {
     "q_pelvis_acc": [0, 100],
     "q_marche_distance": [-1.0, 1.0],
     "q_feet_orientation": [-np.pi, np.pi],
-    "q_symmetric": [0.0, 5.0],
 }
 multiplicators = {}
 for key in exponential_bornes.keys():
