@@ -15,6 +15,7 @@ def build_observation(
     contact_force_left_foot: "npt.NDArray[np.float32]",
     contact_force_right_foot: "npt.NDArray[np.float32]",
     phi: float,
+    previous_action: "npt.NDArray[np.float32]",
 ) -> "npt.NDArray[np.float32]":
     """Constructs the observation vector from sensor data and internal state."""
     clock_signal = np.array([np.sin(2 * np.pi * phi), np.cos(2 * np.pi * phi)])
@@ -30,6 +31,7 @@ def build_observation(
             contact_force_left_foot[:3],
             contact_force_right_foot[:3],
             clock_signal,
+            previous_action,
         ]
     ).astype(np.float32)
 
@@ -83,6 +85,15 @@ def get_symmetric_obs(obs: "npt.NDArray[np.float32]") -> "npt.NDArray[np.float32
     # clock signal - phase shift of half cycle for symmetric gait
     symmetric_obs[37] = -obs[37]  # sin component
     symmetric_obs[38] = -obs[38]  # cos component
+
+    # previous action (10 dims) - same swap+negate as symmetric_action()
+    prev = obs[39:49].copy()
+    mirrored = np.concatenate([prev[5:], prev[:5]])
+    mirrored[0] = -mirrored[0]  # hip-roll
+    mirrored[1] = -mirrored[1]  # hip-yaw
+    mirrored[5] = -mirrored[5]  # hip-roll
+    mirrored[6] = -mirrored[6]  # hip-yaw
+    symmetric_obs[39:49] = mirrored
 
     return symmetric_obs
 

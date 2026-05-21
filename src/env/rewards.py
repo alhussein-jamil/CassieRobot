@@ -47,6 +47,15 @@ class RewardCalculator:
         # Speed: use actuator speed limits rather than command velocity so
         #   joint velocities don't saturate the range.
         max_joint_spd = 12.2  # rad/s, from actuator speed limits (knee)
+        # Use ||action_space.high|| as the upper bound for ``q_torque``
+        # (= ||action||) and sqrt(n_actions) as the upper bound for the
+        # per-action change ``q_action`` (which is normalized to [0, 1] per
+        # component before being summed in quadrature). The previous bounds
+        # (max(action_space.high) and 1.0) were too small, so both quantities
+        # saturated at every step and produced ZERO gradient on torque magnitude
+        # / action smoothness.
+        torque_max_norm = float(np.linalg.norm(action_space_high))
+        action_dist_max = float(np.sqrt(action_space_high.size))
         self.exponents_ranges = {
             "q_vx": (0.0, max(x_cmd_vel, 0.5)),
             "q_vy": (0.0, max(y_cmd_vel, 0.5)),
@@ -54,10 +63,10 @@ class RewardCalculator:
             "q_right_frc": (0.0, gravity * mass),
             "q_left_spd": (0.0, max_joint_spd),
             "q_right_spd": (0.0, max_joint_spd),
-            "q_action": (0.0, 1.0),
+            "q_action": (0.0, action_dist_max),
             "q_pelvis_acc": (0.0, 10.0),
             "q_orientation": (0.0, 2 * np.sqrt(2)),
-            "q_torque": (0.0, np.max(action_space_high)),
+            "q_torque": (0.0, torque_max_norm),
             "q_left_foot_pitch": (0.0, np.pi / 2),
             "q_right_foot_pitch": (0.0, np.pi / 2),
         }

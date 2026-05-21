@@ -6,7 +6,7 @@ training:
     env_config:
       # The constants are defined here
       symmetric_regulation: alternate
-      dt_per_cycle: 0.5
+      dt_per_cycle: 0.8
       r : 0.6
       kappa: 20
       x_cmd_vel: 0.5
@@ -14,7 +14,7 @@ training:
       z_cmd_vel: 0
       terminate_when_unhealthy: true
       max_simulation_time: 10 # seconds
-      pelvis_height: [0.65,1.25]
+      pelvis_height: [0.5,1.25]
       feet_distance_x: 0.8
       feet_distance_y: 0.6
       feet_distance_z: 0.5
@@ -29,21 +29,23 @@ training:
       width: 1920
       height: 1080
       reset_noise_scale: 0.08
-      force_max_norm: 30.0
+      reset_noise_vel_scale: 0.0
+      force_max_norm: 5.0
       push_prob: 0.01 #  1% of the time
       push_duration: 0.1 # seconds
-      r_bias: 0.0 # Make sure reward can be negative
-      r_biped: 0.5
+      action_filter_alpha: 0.6 # EMA on motor commands; 1.0 disables, lower = smoother
+      r_bias: -0.1 # Make sure reward can be negative
+      r_biped: 0.7
       r_feet_parallel: 0.1
-      r_cmd : 1.0
-      r_smooth: 0.05
+      r_cmd : 0.5
+      r_smooth: 0.3
     render_env: false
 
   env_runners:
     enable_tf1_exec_eagerly: true
     num_env_runners: ???
-    num_envs_per_env_runner: 4
-    num_cpus_per_env_runner: 1.0
+    num_envs_per_env_runner: 8
+    # num_cpus_per_env_runner: 1.0
     num_gpus_per_env_runner: ???
     rollout_fragment_length: auto
     batch_mode: truncate_episodes
@@ -63,7 +65,8 @@ training:
     # Core training parameters
     gamma: 0.99
     grad_clip: 1.0
-    train_batch_size: 16384 # Note: may need adjustment based on total env runners & learners if using train_batch_size_per_learner
+    grad_clip_by: global_norm
+    train_batch_size: 32768 # Note: may need adjustment based on total env runners & learners if using train_batch_size_per_learner
 
     # Model configuration
     model:
@@ -87,7 +90,7 @@ training:
     kl_coeff: 0.2
     kl_target: 0.01
     minibatch_size: 1024 # Renamed from sgd_minibatch_size
-    num_epochs: 16       # Renamed from num_sgd_iter
+    num_epochs: 8       # Renamed from num_sgd_iter
     shuffle_batch_per_epoch: true # Renamed from shuffle_sequences
     vf_loss_coeff: 0.5
     entropy_coeff: 0.003

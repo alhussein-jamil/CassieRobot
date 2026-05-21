@@ -69,8 +69,17 @@ class CassieEnv(MujocoEnv):
         self.y_cmd_vel: float = config["y_cmd_vel"]
         self.model_file: str = config["model"]
         self._reset_noise_scale: float = config["reset_noise_scale"]
+        # Velocity reset noise can be tuned separately from position noise;
+        # large initial qvel makes static-balance learning extremely hard.
+        self._reset_noise_vel_scale: float = float(
+            config.get("reset_noise_vel_scale", config["reset_noise_scale"])
+        )
         self._force_max_norm: float = config["force_max_norm"]
         self._push_prob: float = config["push_prob"]
+        # Low-pass (EMA) filter on actions before they reach MuJoCo.
+        # filtered = alpha * new + (1 - alpha) * previous
+        # alpha=1.0 disables the filter; lower values smooth more aggressively.
+        self.action_filter_alpha: float = float(config.get("action_filter_alpha", 1.0))
         self.render_width: int = config["width"]
         self.render_height: int = config["height"]
         self.sim_fps: int = config["sim_fps"]
@@ -93,10 +102,13 @@ class CassieEnv(MujocoEnv):
         self.contact: bool = False
         self.symmetric_turn: bool = False
         self.init_rpy: npt.NDArray[np.float32] | None = None
-        self.contact_force_left_foot: npt.NDArray[np.float64] = np.zeros(6, dtype=np.float64)
-        self.contact_force_right_foot: npt.NDArray[np.float64] = np.zeros(6, dtype=np.float64)
+        self.contact_force_left_foot: npt.NDArray[np.float64] = np.zeros(
+            6, dtype=np.float64
+        )
+        self.contact_force_right_foot: npt.NDArray[np.float64] = np.zeros(
+            6, dtype=np.float64
+        )
         self.obs: npt.NDArray[np.float32] | None = None
-
         # Cached sensor readings (refreshed once per physics step). Avoids
         # repeated string lookups into the model when the same data is
         # consumed by reward, health, and observation builders.
@@ -119,6 +131,7 @@ class CassieEnv(MujocoEnv):
                 ("command", Box(-np.inf, np.inf, shape=(2,))),
                 ("contact_forces", Box(-np.inf, np.inf, shape=(6,))),
                 ("clock", Box(-1.0, 1.0, shape=(2,))),
+                ("previous_action", Box(-np.inf, np.inf, shape=(10,))),
             ]
         )
         _obs_low = np.concatenate([s.low for s in observation_space_dict.values()])
@@ -311,6 +324,7 @@ class CassieEnv(MujocoEnv):
             contact_force_left_foot=self.contact_force_left_foot,
             contact_force_right_foot=self.contact_force_right_foot,
             phi=self.phi,
+            previous_action=self.previous_action,
         )
 
     @staticmethod
@@ -335,6 +349,12 @@ class CassieEnv(MujocoEnv):
         self, action: "npt.NDArray[np.float32]"
     ) -> tuple["npt.NDArray[np.float32]", float, bool, bool, dict[str, Any]]:
         act = self.symmetric_action(action) if self.symmetric_turn else action
+        # Low-pass filter the action in motor-units before it reaches MuJoCo.
+        if self.action_filter_alpha < 1.0:
+            act = (
+                self.action_filter_alpha * act
+                + (1.0 - self.action_filter_alpha) * self.previous_action
+            ).astype(act.dtype)
         self.do_simulation(act, self.frame_skip)
 
         # Refresh sensor cache once per step; reused by reward + obs below.
@@ -357,8 +377,12 @@ class CassieEnv(MujocoEnv):
             command=self.command,
             pelvis_quat=sensors_now["framequat"],
             pelvis_ang_vel=sensors_now["gyro"],
-            left_foot_rpy=self.quat_to_rpy(np.ascontiguousarray(self.data.xquat[LEFT_FOOT])),
-            right_foot_rpy=self.quat_to_rpy(np.ascontiguousarray(self.data.xquat[RIGHT_FOOT])),
+            left_foot_rpy=self.quat_to_rpy(
+                np.ascontiguousarray(self.data.xquat[LEFT_FOOT])
+            ),
+            right_foot_rpy=self.quat_to_rpy(
+                np.ascontiguousarray(self.data.xquat[RIGHT_FOOT])
+            ),
             contact_force_left=self.contact_force_left_foot,
             contact_force_right=self.contact_force_right_foot,
             phi=self.phi,
@@ -401,12 +425,18 @@ class CassieEnv(MujocoEnv):
         self.contact = False
         self.command = np.array([self.x_cmd_vel, self.y_cmd_vel], dtype=np.float32)
         self._pushing = -1
+        # Reset the symmetric-regulation flag so episodes don't start mid-toggle
+        # when the previous one ended on an odd step. This keeps the per-episode
+        # parity unbiased.
+        self.symmetric_turn = False
 
         qpos = self.init_qpos + self.np_random.uniform(
             low=noise_low, high=noise_high, size=self.model.nq
         )
         qvel = self.init_qvel + self.np_random.uniform(
-            low=noise_low, high=noise_high, size=self.model.nv
+            low=-self._reset_noise_vel_scale,
+            high=self._reset_noise_vel_scale,
+            size=self.model.nv,
         )
 
         self.set_state(qpos, qvel)
