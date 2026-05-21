@@ -105,30 +105,57 @@ To get a local copy up and running follow these simple example steps.
 
 ### Prerequisites
 
-This is an example of how to list things you need to use the software and how to install them.
-* python3.10 or higher
-   ```sh
-   sudo apt-get install python3.10
-   ```
+This project requires Python 3.10 or higher and a working `git` client.
+
+Linux / macOS:
+* Install Python 3.10 or higher from your package manager or https://www.python.org
+* Install `git`
+
+Windows:
+* Install Python 3.10 or higher from https://www.python.org and add `python` to PATH
+* Install Git for Windows
+* If you want GPU acceleration, install the appropriate CUDA toolkit for your GPU and matching PyTorch wheel
 
 ### Installation
 
 1. Clone the repo
    ```sh
    git clone https://github.com/alhussein-jamil/CassieRobot.git
+   cd CassieRobot
    ```
-2. Install 
+2. Install dependencies
    ```sh
    make install
    ```
+
+   On Windows, `make install` creates a `venv_win` virtual environment and installs the same dependencies.
+
 3. Train the model
    ```sh
    make train
    ```
-4. Run tensorboard
+4. Run TensorBoard
    ```sh
    make tensorboard
    ```
+
+If you prefer manual setup instead of `make`, create a virtual environment and install requirements directly:
+
+```sh
+python -m venv .venv
+.venv/bin/python -m pip install -U pip
+.venv/bin/python -m pip install torch torchvision torchaudio
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+On Windows, use:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -U pip
+.\.venv\Scripts\python -m pip install torch torchvision torchaudio
+.\.venv\Scripts\python -m pip install -r requirements.txt
+```
 
 <!-- USAGE EXAMPLES -->
 ## Usage
