@@ -348,6 +348,7 @@ class CassieEnv(MujocoEnv):
     def step(
         self, action: "npt.NDArray[np.float32]"
     ) -> tuple["npt.NDArray[np.float32]", float, bool, bool, dict[str, Any]]:
+        self.update_symmetric_turn()
         act = self.symmetric_action(action) if self.symmetric_turn else action
         # Low-pass filter the action in motor-units before it reaches MuJoCo.
         if self.action_filter_alpha < 1.0:
@@ -389,7 +390,6 @@ class CassieEnv(MujocoEnv):
         )
 
         self._set_obs()
-        self.update_symmetric_turn()
         observation = (
             self._get_symmetric_obs(self.obs) if self.symmetric_turn else self.obs
         )
